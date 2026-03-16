@@ -209,5 +209,5 @@ __marimo__/
 # Large Files
 data/raw/
 data/processed/
-data/splits/
+# data/splits/
 outputs/checkpoints/
