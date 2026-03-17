@@ -61,7 +61,7 @@ https://www.kaggle.com/datasets/shreyanshpatel1/130k-real-vs-fake-face
 
 사용 모델:
 - ResNet-18
-- EfficientNet-V2-S
+- EfficientNet-V2-S(선택)
 - ViT
 
 ### 4.2 Frequency branch
@@ -89,7 +89,7 @@ https://www.kaggle.com/datasets/shreyanshpatel1/130k-real-vs-fake-face
 - ResNet-18
 
 ### Additional spatial models
-- EfficientNet-V2-S
+- EfficientNet-V2-S(선택)
 - ViT
 
 ### Frequency-based model
@@ -206,16 +206,16 @@ python scripts/visualize.py --config configs/train/fusion_resnet18_spai.yaml
 
 ## 11. Planned Results Table
 
-| Dataset   | Model           | Input Type          | Accuracy | Precision | Recall | F1 | ROC-AUC |
-| --------- | --------------- | ------------------- | -------- | --------- | ------ | -- | ------- |
-| CIFAKE    | ResNet-18       | Spatial             | -        | -         | -      | -  | -       |
-| CIFAKE    | EffecientNet-V2 | Spatial             | -        | -         | -      | -  | -       |
-| CIFAKE    | SPAI            | Frequency           | -        | -         | -      | -  | -       |
-| CIFAKE    | Fusion          | Spatial + Frequency | -        | -         | -      | -  | -       |
-| 130k Face | ResNet-18       | Spatial             | -        | -         | -      | -  | -       |
-| 130k Face | EffecientNet-V2 | Spatial             | -        | -         | -      | -  | -       |
-| 130k Face | SPAI            | Frequency           | -        | -         | -      | -  | -       |
-| 130k Face | Fusion          | Spatial + Frequency | -        | -         | -      | -  | -       |
+| Dataset   | Model                     | Input Type          | Accuracy | Precision | Recall | F1 | ROC-AUC |
+| --------- | ------------------------- | ------------------- | -------- | --------- | ------ | -- | ------- |
+| CIFAKE    | ResNet-18                 | Spatial             | -        | -         | -      | -  | -       |
+| CIFAKE    | EffecientNet-V2(Optional) | Spatial             | -        | -         | -      | -  | -       |
+| CIFAKE    | SPAI                      | Frequency           | -        | -         | -      | -  | -       |
+| CIFAKE    | Fusion                    | Spatial + Frequency | -        | -         | -      | -  | -       |
+| 130k Face | ResNet-18                 | Spatial             | -        | -         | -      | -  | -       |
+| 130k Face | EffecientNet-V2(Optional) | Spatial             | -        | -         | -      | -  | -       |
+| 130k Face | SPAI                      | Frequency           | -        | -         | -      | -  | -       |
+| 130k Face | Fusion                    | Spatial + Frequency | -        | -         | -      | -  | -       |
 
 ---
 
