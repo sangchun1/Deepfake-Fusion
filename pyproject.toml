@@ -10,8 +10,6 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
   # core deep learning
-  "torch>=2.2",
-  "torchvision>=0.17",
   "timm>=1.0.25",
 
   # data / math

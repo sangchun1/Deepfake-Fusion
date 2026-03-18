@@ -162,7 +162,20 @@ git clone <your-repo-url>
 cd <your-repo-name>
 ```
 
-### 9.2 Install dependencies
+### 9.2 Install PyTorch
+> [!NOTE]
+> PyTorch is **not** installed through `pyproject.toml`.
+> Please install a CUDA-enabled PyTorch build that matches your system first.
+> For CUDA 12.8, for example:
+
+```bash
+pip install torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cu128
+```
+
+> If your CUDA version or platform is different, use the official PyTorch install guide:
+> [https://pytorch.org/get-started/locally/](https://pytorch.org/get-started/locally/)
+
+### 9.3 Install dependencies
 ```bash
 pip install -U pip
 pip install -e .
