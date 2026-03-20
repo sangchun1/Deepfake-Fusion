@@ -180,7 +180,7 @@ class Trainer:
         self.clip_grad_norm = _cfg_get(train_cfg, "train", "clip_grad_norm", default=None)
 
         self.use_amp = bool(_cfg_get(train_cfg, "experiment", "use_amp", default=True)) and self.device.type == "cuda"
-        self.scaler = torch.amp.GradScaler(enabled=self.use_amp)
+        self.scaler = torch.amp.GradScaler("cuda", enabled=self.use_amp)
 
         self.threshold = float(_cfg_get(train_cfg, "evaluation", "threshold", default=0.5))
         self.log_interval = int(_cfg_get(train_cfg, "logging", "log_interval", default=50))
@@ -202,7 +202,7 @@ class Trainer:
         self.wandb_run = wandb_run
 
     def _autocast_context(self):
-        return torch.amp.autocast(enabled=self.use_amp)
+        return torch.amp.autocast("cuda",enabled=self.use_amp)
 
     def _move_batch_to_device(self, batch: Dict[str, Any]) -> Dict[str, Any]:
         moved = {}
