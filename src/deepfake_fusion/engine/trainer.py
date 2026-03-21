@@ -185,7 +185,7 @@ class Trainer:
         self.threshold = float(_cfg_get(train_cfg, "evaluation", "threshold", default=0.5))
         self.log_interval = int(_cfg_get(train_cfg, "logging", "log_interval", default=50))
         self.val_interval = int(_cfg_get(train_cfg, "logging", "val_interval", default=1))
-        self.save_interval = int(_cfg_get(train_cfg, "logging", "save_interval", default=1))
+        # self.save_interval = int(_cfg_get(train_cfg, "logging", "save_interval", default=1))
         self.use_tqdm = bool(_cfg_get(train_cfg, "logging", "use_tqdm", default=True))
 
         self.output_dir = Path(_cfg_get(train_cfg, "experiment", "output_dir", default="outputs/default"))
@@ -419,8 +419,8 @@ class Trainer:
                     self.wandb_run.summary["best_epoch"] = epoch
                     self.wandb_run.summary[f"best_{self.monitor}"] = monitor_value
 
-            if epoch % self.save_interval == 0:
-                self._save_checkpoint(f"epoch_{epoch:03d}.pth", epoch, epoch_log)
+            # if epoch % self.save_interval == 0:
+            #     self._save_checkpoint(f"epoch_{epoch:03d}.pth", epoch, epoch_log)
 
             self._save_checkpoint("last.pth", epoch, epoch_log)
             self._step_scheduler(metrics_for_scheduler=monitor_source)
