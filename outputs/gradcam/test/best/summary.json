@@ -1,0 +1,191 @@
+{
+  "checkpoint": "C:/Deepfake-Fusion/outputs/spatial/resnet18_cifake/best.pth",
+  "split": "test",
+  "target_type": "pred",
+  "target_layer": "auto",
+  "resolved_save_dir": "C:/Deepfake-Fusion/outputs/gradcam/test/best",
+  "saved_counts": {
+    "correct_real": 4,
+    "correct_fake": 4,
+    "wrong_fake": 4,
+    "wrong_real": 4
+  },
+  "records": [
+    {
+      "index": 0,
+      "group": "correct_fake",
+      "true_label": 1,
+      "pred_label": 1,
+      "pred_prob": 1.0,
+      "target_type": "pred",
+      "target_class": 1,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/cifake/test/FAKE/0 (10).jpg",
+      "saved_path": "C:/Deepfake-Fusion/outputs/gradcam/test/best/correct_fake/00000_true-fake_pred-fake_prob-1.0000.png"
+    },
+    {
+      "index": 1,
+      "group": "correct_fake",
+      "true_label": 1,
+      "pred_label": 1,
+      "pred_prob": 1.0,
+      "target_type": "pred",
+      "target_class": 1,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/cifake/test/FAKE/0 (2).jpg",
+      "saved_path": "C:/Deepfake-Fusion/outputs/gradcam/test/best/correct_fake/00001_true-fake_pred-fake_prob-1.0000.png"
+    },
+    {
+      "index": 2,
+      "group": "correct_fake",
+      "true_label": 1,
+      "pred_label": 1,
+      "pred_prob": 1.0,
+      "target_type": "pred",
+      "target_class": 1,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/cifake/test/FAKE/0 (3).jpg",
+      "saved_path": "C:/Deepfake-Fusion/outputs/gradcam/test/best/correct_fake/00002_true-fake_pred-fake_prob-1.0000.png"
+    },
+    {
+      "index": 3,
+      "group": "correct_fake",
+      "true_label": 1,
+      "pred_label": 1,
+      "pred_prob": 1.0,
+      "target_type": "pred",
+      "target_class": 1,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/cifake/test/FAKE/0 (4).jpg",
+      "saved_path": "C:/Deepfake-Fusion/outputs/gradcam/test/best/correct_fake/00003_true-fake_pred-fake_prob-1.0000.png"
+    },
+    {
+      "index": 25,
+      "group": "wrong_fake",
+      "true_label": 1,
+      "pred_label": 0,
+      "pred_prob": 0.5212375521659851,
+      "target_type": "pred",
+      "target_class": 0,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/cifake/test/FAKE/10 (6).jpg",
+      "saved_path": "C:/Deepfake-Fusion/outputs/gradcam/test/best/wrong_fake/00025_true-fake_pred-real_prob-0.5212.png"
+    },
+    {
+      "index": 81,
+      "group": "wrong_fake",
+      "true_label": 1,
+      "pred_label": 0,
+      "pred_prob": 0.989342451095581,
+      "target_type": "pred",
+      "target_class": 0,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/cifake/test/FAKE/105 (2).jpg",
+      "saved_path": "C:/Deepfake-Fusion/outputs/gradcam/test/best/wrong_fake/00081_true-fake_pred-real_prob-0.9893.png"
+    },
+    {
+      "index": 160,
+      "group": "wrong_fake",
+      "true_label": 1,
+      "pred_label": 0,
+      "pred_prob": 0.9292439222335815,
+      "target_type": "pred",
+      "target_class": 0,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/cifake/test/FAKE/112 (10).jpg",
+      "saved_path": "C:/Deepfake-Fusion/outputs/gradcam/test/best/wrong_fake/00160_true-fake_pred-real_prob-0.9292.png"
+    },
+    {
+      "index": 212,
+      "group": "wrong_fake",
+      "true_label": 1,
+      "pred_label": 0,
+      "pred_prob": 0.9995297193527222,
+      "target_type": "pred",
+      "target_class": 0,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/cifake/test/FAKE/117 (3).jpg",
+      "saved_path": "C:/Deepfake-Fusion/outputs/gradcam/test/best/wrong_fake/00212_true-fake_pred-real_prob-0.9995.png"
+    },
+    {
+      "index": 10000,
+      "group": "correct_real",
+      "true_label": 0,
+      "pred_label": 0,
+      "pred_prob": 1.0,
+      "target_type": "pred",
+      "target_class": 0,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/cifake/test/REAL/0000 (10).jpg",
+      "saved_path": "C:/Deepfake-Fusion/outputs/gradcam/test/best/correct_real/10000_true-real_pred-real_prob-1.0000.png"
+    },
+    {
+      "index": 10001,
+      "group": "correct_real",
+      "true_label": 0,
+      "pred_label": 0,
+      "pred_prob": 1.0,
+      "target_type": "pred",
+      "target_class": 0,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/cifake/test/REAL/0000 (2).jpg",
+      "saved_path": "C:/Deepfake-Fusion/outputs/gradcam/test/best/correct_real/10001_true-real_pred-real_prob-1.0000.png"
+    },
+    {
+      "index": 10002,
+      "group": "correct_real",
+      "true_label": 0,
+      "pred_label": 0,
+      "pred_prob": 1.0,
+      "target_type": "pred",
+      "target_class": 0,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/cifake/test/REAL/0000 (3).jpg",
+      "saved_path": "C:/Deepfake-Fusion/outputs/gradcam/test/best/correct_real/10002_true-real_pred-real_prob-1.0000.png"
+    },
+    {
+      "index": 10003,
+      "group": "correct_real",
+      "true_label": 0,
+      "pred_label": 0,
+      "pred_prob": 0.9993420243263245,
+      "target_type": "pred",
+      "target_class": 0,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/cifake/test/REAL/0000 (4).jpg",
+      "saved_path": "C:/Deepfake-Fusion/outputs/gradcam/test/best/correct_real/10003_true-real_pred-real_prob-0.9993.png"
+    },
+    {
+      "index": 10130,
+      "group": "wrong_real",
+      "true_label": 0,
+      "pred_label": 1,
+      "pred_prob": 0.999975323677063,
+      "target_type": "pred",
+      "target_class": 1,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/cifake/test/REAL/0013 (10).jpg",
+      "saved_path": "C:/Deepfake-Fusion/outputs/gradcam/test/best/wrong_real/10130_true-real_pred-fake_prob-1.0000.png"
+    },
+    {
+      "index": 10139,
+      "group": "wrong_real",
+      "true_label": 0,
+      "pred_label": 1,
+      "pred_prob": 0.9999992847442627,
+      "target_type": "pred",
+      "target_class": 1,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/cifake/test/REAL/0013.jpg",
+      "saved_path": "C:/Deepfake-Fusion/outputs/gradcam/test/best/wrong_real/10139_true-real_pred-fake_prob-1.0000.png"
+    },
+    {
+      "index": 10198,
+      "group": "wrong_real",
+      "true_label": 0,
+      "pred_label": 1,
+      "pred_prob": 0.9999986886978149,
+      "target_type": "pred",
+      "target_class": 1,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/cifake/test/REAL/0019 (9).jpg",
+      "saved_path": "C:/Deepfake-Fusion/outputs/gradcam/test/best/wrong_real/10198_true-real_pred-fake_prob-1.0000.png"
+    },
+    {
+      "index": 10532,
+      "group": "wrong_real",
+      "true_label": 0,
+      "pred_label": 1,
+      "pred_prob": 0.999964714050293,
+      "target_type": "pred",
+      "target_class": 1,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/cifake/test/REAL/0053 (3).jpg",
+      "saved_path": "C:/Deepfake-Fusion/outputs/gradcam/test/best/wrong_real/10532_true-real_pred-fake_prob-1.0000.png"
+    }
+  ]
+}
