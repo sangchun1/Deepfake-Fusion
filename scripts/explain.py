@@ -5,9 +5,8 @@ import json
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Type
 
-import numpy as np
 import torch
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -15,9 +14,14 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.deepfake_fusion.datasets.cifake_dataset import CIFAKEDataset
+from src.deepfake_fusion.datasets.face130k_dataset import FACE130KDataset
 from src.deepfake_fusion.models.build_model import build_model
 from src.deepfake_fusion.transforms.image_aug import build_image_transform
-from src.deepfake_fusion.utils.config import load_experiment_config, pretty_print_config, resolve_path
+from src.deepfake_fusion.utils.config import (
+    load_experiment_config,
+    pretty_print_config,
+    resolve_path,
+)
 from src.deepfake_fusion.utils.seed import seed_everything
 from src.deepfake_fusion.visualization.gradcam import (
     GradCAM,
@@ -28,6 +32,13 @@ from src.deepfake_fusion.visualization.gradcam import (
     resolve_target_layer,
     save_rgb_image,
 )
+
+DATASET_REGISTRY: Dict[str, Type] = {
+    "cifake": CIFAKEDataset,
+    "CIFAKEDataset": CIFAKEDataset,
+    "face130k": FACE130KDataset,
+    "FACE130KDataset": FACE130KDataset,
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -46,7 +57,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--train_config",
         type=str,
-        default="configs/train/spatial.yaml",
+        default="configs/train/spatial_cifake.yaml",
     )
     parser.add_argument(
         "--checkpoint",
@@ -105,7 +116,11 @@ def resolve_device(device_name: str | None) -> torch.device:
     if device_name == "cuda" and torch.cuda.is_available():
         return torch.device("cuda")
 
-    if device_name == "mps" and hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+    if (
+        device_name == "mps"
+        and hasattr(torch.backends, "mps")
+        and torch.backends.mps.is_available()
+    ):
         return torch.device("mps")
 
     return torch.device("cpu")
@@ -180,7 +195,40 @@ def short_label_name(label: int) -> str:
     return "real" if label == 0 else "fake"
 
 
-def build_dataset(cfg, split: str) -> CIFAKEDataset:
+def get_dataset_class(cfg):
+    dataset_key = None
+
+    if getattr(cfg.data, "dataset_class", None) is not None:
+        dataset_key = str(cfg.data.dataset_class)
+    elif getattr(cfg.data, "name", None) is not None:
+        dataset_key = str(cfg.data.name)
+
+    if dataset_key is None:
+        raise ValueError(
+            "Could not determine dataset class. Set cfg.data.dataset_class "
+            "or cfg.data.name in the data config."
+        )
+
+    if dataset_key not in DATASET_REGISTRY:
+        supported = ", ".join(DATASET_REGISTRY.keys())
+        raise ValueError(
+            f"Unsupported dataset '{dataset_key}'. Supported values: {supported}"
+        )
+
+    return DATASET_REGISTRY[dataset_key]
+
+
+def get_split_csv_path(cfg, split: str) -> str:
+    if split == "train":
+        return cfg.data.paths.train_csv
+    if split == "val":
+        return cfg.data.paths.val_csv
+    if split == "test":
+        return cfg.data.paths.test_csv
+    raise ValueError(f"Unsupported split: {split}")
+
+
+def build_dataset(cfg, split: str):
     """
     시각화는 랜덤 augment 없이 deterministic transform 사용.
     train split을 보더라도 eval-style transform을 사용한다.
@@ -191,20 +239,18 @@ def build_dataset(cfg, split: str) -> CIFAKEDataset:
         aug_cfg=None,
     )
 
-    if split == "train":
-        csv_path = cfg.data.paths.train_csv
-    elif split == "val":
-        csv_path = cfg.data.paths.val_csv
-    elif split == "test":
-        csv_path = cfg.data.paths.test_csv
-    else:
-        raise ValueError(f"Unsupported split: {split}")
+    csv_path = get_split_csv_path(cfg, split)
+    csv_path_resolved = resolve_path(csv_path)
+    if not csv_path_resolved.exists():
+        raise FileNotFoundError(f"{split} split CSV not found: {csv_path_resolved}")
 
-    return CIFAKEDataset(
+    dataset_cls = get_dataset_class(cfg)
+    dataset = dataset_cls(
         csv_path=csv_path,
         root_dir=cfg.data.paths.root_dir,
         transform=transform,
     )
+    return dataset_cls, dataset
 
 
 def main() -> None:
@@ -234,9 +280,19 @@ def main() -> None:
     if not checkpoint_path.exists():
         raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
 
-    dataset = build_dataset(cfg, args.split)
+    dataset_cls, dataset = build_dataset(cfg, args.split)
     if len(dataset) == 0:
         raise RuntimeError(f"No samples found in split: {args.split}")
+
+    print("=" * 80)
+    print("Dataset Summary")
+    print("=" * 80)
+    print(f"dataset name: {getattr(cfg.data, 'name', 'unknown')}")
+    print(f"dataset class: {dataset_cls.__name__}")
+    print(f"split: {args.split}")
+    print(f"size: {len(dataset)}")
+    if hasattr(dataset, "class_counts"):
+        print(f"class counts: {dataset.class_counts}")
 
     model = build_model(cfg.model)
     load_checkpoint_to_model(
@@ -256,8 +312,9 @@ def main() -> None:
     mean = list(cfg.data.image.mean)
     std = list(cfg.data.image.std)
 
+    dataset_name = getattr(cfg.data, "name", "unknown")
     save_root = ensure_dir(
-        resolve_path(args.save_dir) / args.split / checkpoint_path.stem
+        resolve_path(args.save_dir) / dataset_name / args.split / checkpoint_path.stem
     )
 
     target_groups = ["correct_real", "correct_fake", "wrong_real", "wrong_fake"]
@@ -270,7 +327,7 @@ def main() -> None:
                 break
 
             sample = dataset[idx]
-            image_tensor = sample["image"]                 # [C, H, W]
+            image_tensor = sample["image"]
             label_tensor = sample["label"]
             filepath = sample["filepath"]
 
@@ -296,7 +353,7 @@ def main() -> None:
             overlay_rgb = overlay_cam_on_image(input_rgb, cam, alpha=args.alpha)
 
             text_lines = [
-                f"split={args.split} | group={group} | idx={idx}",
+                f"dataset={dataset_name} | split={args.split} | group={group} | idx={idx}",
                 f"true={short_label_name(true_label)}({true_label}) | pred={short_label_name(pred_label)}({pred_label}) | prob={pred_prob:.4f}",
                 f"target_type={args.target_type} | target_class={target_class}",
                 f"path={Path(filepath).name}",
@@ -341,6 +398,8 @@ def main() -> None:
         gradcam.remove_hooks()
 
     summary = {
+        "dataset_name": dataset_name,
+        "dataset_class": dataset_cls.__name__,
         "checkpoint": checkpoint_path.as_posix(),
         "split": args.split,
         "target_type": args.target_type,
@@ -354,6 +413,7 @@ def main() -> None:
     print("=" * 80)
     print("Grad-CAM Finished")
     print("=" * 80)
+    print(f"dataset:    {dataset_name}")
     print(f"checkpoint: {checkpoint_path}")
     print(f"save_dir:   {save_root}")
     print(f"saved:      {dict(saved_counts)}")

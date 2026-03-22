@@ -15,7 +15,7 @@ command:
   - --model_config
   - configs/model/resnet18.yaml
   - --train_config
-  - configs/train/spatial.yaml
+  - configs/train/spatial_cifake.yaml
 
 parameters:
   lr:

@@ -4,7 +4,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Type
 
 import wandb
 from torch.utils.data import DataLoader
@@ -14,6 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.deepfake_fusion.datasets.cifake_dataset import CIFAKEDataset
+from src.deepfake_fusion.datasets.face130k_dataset import FACE130KDataset
 from src.deepfake_fusion.engine.trainer import Trainer
 from src.deepfake_fusion.models.build_model import build_model, get_model_summary
 from src.deepfake_fusion.transforms.image_aug import build_transforms_from_config
@@ -28,6 +29,13 @@ from src.deepfake_fusion.utils.seed import (
     seed_everything,
     seed_worker,
 )
+
+DATASET_REGISTRY: Dict[str, Type] = {
+    "cifake": CIFAKEDataset,
+    "CIFAKEDataset": CIFAKEDataset,
+    "face130k": FACE130KDataset,
+    "FACE130KDataset": FACE130KDataset,
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -47,7 +55,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--train_config",
         type=str,
-        default="configs/train/spatial.yaml",
+        default="configs/train/spatial_cifake.yaml",
         help="Path to train config YAML.",
     )
     parser.add_argument(
@@ -111,6 +119,37 @@ def build_loader(
     )
 
 
+def get_dataset_class(cfg):
+    dataset_key = None
+
+    if getattr(cfg.data, "dataset_class", None) is not None:
+        dataset_key = str(cfg.data.dataset_class)
+    elif getattr(cfg.data, "name", None) is not None:
+        dataset_key = str(cfg.data.name)
+
+    if dataset_key is None:
+        raise ValueError(
+            "Could not determine dataset class. Set cfg.data.dataset_class "
+            "or cfg.data.name in the data config."
+        )
+
+    if dataset_key not in DATASET_REGISTRY:
+        supported = ", ".join(DATASET_REGISTRY.keys())
+        raise ValueError(
+            f"Unsupported dataset '{dataset_key}'. Supported values: {supported}"
+        )
+
+    return DATASET_REGISTRY[dataset_key]
+
+
+def build_single_dataset(dataset_cls, csv_path, root_dir, transform):
+    return dataset_cls(
+        csv_path=csv_path,
+        root_dir=root_dir,
+        transform=transform,
+    )
+
+
 def build_datasets_and_loaders(cfg, seed: int):
     transforms = build_transforms_from_config(cfg)
 
@@ -120,8 +159,10 @@ def build_datasets_and_loaders(cfg, seed: int):
     drop_last = bool(cfg.data.dataloader.drop_last)
 
     root_dir = cfg.data.paths.root_dir
+    dataset_cls = get_dataset_class(cfg)
 
-    train_dataset = CIFAKEDataset(
+    train_dataset = build_single_dataset(
+        dataset_cls=dataset_cls,
         csv_path=cfg.data.paths.train_csv,
         root_dir=root_dir,
         transform=transforms["train"],
@@ -138,7 +179,8 @@ def build_datasets_and_loaders(cfg, seed: int):
 
     val_loader = None
     if path_exists(cfg.data.paths.val_csv):
-        val_dataset = CIFAKEDataset(
+        val_dataset = build_single_dataset(
+            dataset_cls=dataset_cls,
             csv_path=cfg.data.paths.val_csv,
             root_dir=root_dir,
             transform=transforms["val"],
@@ -155,7 +197,8 @@ def build_datasets_and_loaders(cfg, seed: int):
 
     test_loader = None
     if path_exists(cfg.data.paths.test_csv):
-        test_dataset = CIFAKEDataset(
+        test_dataset = build_single_dataset(
+            dataset_cls=dataset_cls,
             csv_path=cfg.data.paths.test_csv,
             root_dir=root_dir,
             transform=transforms["test"],
@@ -170,7 +213,7 @@ def build_datasets_and_loaders(cfg, seed: int):
             seed=seed,
         )
 
-    return train_dataset, train_loader, val_loader, test_loader
+    return dataset_cls, train_dataset, train_loader, val_loader, test_loader
 
 
 def apply_sweep_overrides(cfg, sweep_cfg) -> Any:
@@ -231,11 +274,12 @@ def main() -> None:
     if args.device is not None:
         cfg.train.experiment.device = args.device
 
-    # sweep run 시작
     wandb_run = wandb.init(
         project=cfg.train.wandb.project if hasattr(cfg.train, "wandb") else None,
         entity=cfg.train.wandb.entity if hasattr(cfg.train, "wandb") else None,
-        tags=list(cfg.train.wandb.tags) if hasattr(cfg.train, "wandb") and cfg.train.wandb.tags is not None else None,
+        tags=list(cfg.train.wandb.tags)
+        if hasattr(cfg.train, "wandb") and cfg.train.wandb.tags is not None
+        else None,
         mode=cfg.train.wandb.mode if hasattr(cfg.train, "wandb") else "online",
         job_type="sweep",
     )
@@ -255,14 +299,18 @@ def main() -> None:
         seed = int(cfg.train.experiment.seed)
         seed_everything(seed)
 
-        train_dataset, train_loader, val_loader, test_loader = build_datasets_and_loaders(
-            cfg=cfg,
-            seed=seed,
+        dataset_cls, train_dataset, train_loader, val_loader, test_loader = (
+            build_datasets_and_loaders(
+                cfg=cfg,
+                seed=seed,
+            )
         )
 
         print("=" * 80)
         print("Dataset Summary")
         print("=" * 80)
+        print(f"dataset name: {getattr(cfg.data, 'name', 'unknown')}")
+        print(f"dataset class: {dataset_cls.__name__}")
         print(f"train size: {len(train_dataset)}")
         print(f"train class counts: {train_dataset.class_counts}")
 
@@ -308,6 +356,8 @@ def main() -> None:
         last_ckpt_path = output_dir / "last.pth"
 
         final_results: Dict[str, Any] = {
+            "dataset_name": getattr(cfg.data, "name", "unknown"),
+            "dataset_class": dataset_cls.__name__,
             "best_checkpoint": best_ckpt_path.as_posix(),
             "last_checkpoint": last_ckpt_path.as_posix(),
             "best_epoch": trainer.best_epoch,
@@ -324,7 +374,6 @@ def main() -> None:
                 final_results["val_metrics"] = val_metrics
                 print(f"[Best Val]  {format_metrics(val_metrics)}")
 
-                # sweep metric을 확실히 남김
                 if "auc" in val_metrics:
                     wandb.log({"final_val_auc": val_metrics["auc"]})
                 if "accuracy" in val_metrics:
@@ -343,7 +392,8 @@ def main() -> None:
         results_path = output_dir / "final_results.json"
         save_json(final_results, results_path)
 
-        # summary에도 저장
+        wandb_run.summary["dataset_name"] = getattr(cfg.data, "name", "unknown")
+        wandb_run.summary["dataset_class"] = dataset_cls.__name__
         wandb_run.summary["best_epoch"] = trainer.best_epoch
         wandb_run.summary["best_score"] = trainer.best_score
         wandb_run.summary["best_monitor"] = cfg.train.checkpoint.monitor

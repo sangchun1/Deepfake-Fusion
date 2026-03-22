@@ -4,7 +4,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Type
 
 from torch.utils.data import DataLoader
 
@@ -13,6 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.deepfake_fusion.datasets.cifake_dataset import CIFAKEDataset
+from src.deepfake_fusion.datasets.face130k_dataset import FACE130KDataset
 from src.deepfake_fusion.engine.trainer import Trainer
 from src.deepfake_fusion.models.build_model import build_model, get_model_summary
 from src.deepfake_fusion.transforms.image_aug import build_transforms_from_config
@@ -26,6 +27,13 @@ from src.deepfake_fusion.utils.seed import (
     seed_everything,
     seed_worker,
 )
+
+DATASET_REGISTRY: Dict[str, Type] = {
+    "cifake": CIFAKEDataset,
+    "CIFAKEDataset": CIFAKEDataset,
+    "face130k": FACE130KDataset,
+    "FACE130KDataset": FACE130KDataset,
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -46,7 +54,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--train_config",
         type=str,
-        default="configs/train/spatial.yaml",
+        default="configs/train/spatial_cifake.yaml",
         help="Path to train config YAML.",
     )
     parser.add_argument(
@@ -153,6 +161,37 @@ def get_split_shuffle(cfg, split: str) -> bool:
     raise ValueError(f"Unsupported split: {split}")
 
 
+def get_dataset_class(cfg):
+    dataset_key = None
+
+    if getattr(cfg.data, "dataset_class", None) is not None:
+        dataset_key = str(cfg.data.dataset_class)
+    elif getattr(cfg.data, "name", None) is not None:
+        dataset_key = str(cfg.data.name)
+
+    if dataset_key is None:
+        raise ValueError(
+            "Could not determine dataset class. Set cfg.data.dataset_class "
+            "or cfg.data.name in the data config."
+        )
+
+    if dataset_key not in DATASET_REGISTRY:
+        supported = ", ".join(DATASET_REGISTRY.keys())
+        raise ValueError(
+            f"Unsupported dataset '{dataset_key}'. Supported values: {supported}"
+        )
+
+    return DATASET_REGISTRY[dataset_key]
+
+
+def build_single_dataset(dataset_cls, csv_path, root_dir, transform):
+    return dataset_cls(
+        csv_path=csv_path,
+        root_dir=root_dir,
+        transform=transform,
+    )
+
+
 def main() -> None:
     args = parse_args()
 
@@ -184,8 +223,10 @@ def main() -> None:
     if not split_csv_path.exists():
         raise FileNotFoundError(f"{args.split} split CSV not found: {split_csv_path}")
 
-    dataset = CIFAKEDataset(
-        csv_path=cfg.data.paths.train_csv if args.split == "train" else split_csv,
+    dataset_cls = get_dataset_class(cfg)
+    dataset = build_single_dataset(
+        dataset_cls=dataset_cls,
+        csv_path=split_csv,
         root_dir=cfg.data.paths.root_dir,
         transform=transforms[args.split],
     )
@@ -202,6 +243,8 @@ def main() -> None:
     print("=" * 80)
     print("Dataset Summary")
     print("=" * 80)
+    print(f"dataset name: {getattr(cfg.data, 'name', 'unknown')}")
+    print(f"dataset class: {dataset_cls.__name__}")
     print(f"split: {args.split}")
     print(f"size: {len(dataset)}")
     print(f"class counts: {dataset.class_counts}")
@@ -245,6 +288,8 @@ def main() -> None:
     print(format_metrics(metrics))
 
     result = {
+        "dataset_name": getattr(cfg.data, "name", "unknown"),
+        "dataset_class": dataset_cls.__name__,
         "split": args.split,
         "checkpoint": checkpoint_path.as_posix(),
         "metrics": metrics,
