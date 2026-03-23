@@ -356,13 +356,13 @@ def main() -> None:
         save_json({"history": history}, history_path)
 
         best_ckpt_path = output_dir / "best.pth"
-        last_ckpt_path = output_dir / "last.pth"
+        # last_ckpt_path = output_dir / "last.pth"
 
         final_results: Dict[str, Any] = {
             "dataset_name": getattr(cfg.data, "name", "unknown"),
             "dataset_class": dataset_cls.__name__,
             "best_checkpoint": best_ckpt_path.as_posix(),
-            "last_checkpoint": last_ckpt_path.as_posix(),
+            # "last_checkpoint": last_ckpt_path.as_posix(),
             "best_epoch": trainer.best_epoch,
             "best_monitor": cfg.train.checkpoint.monitor,
             "best_score": trainer.best_score,

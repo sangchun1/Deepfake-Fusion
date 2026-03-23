@@ -352,11 +352,11 @@ def main() -> None:
     print(f"Saved training history to: {history_path}")
 
     best_ckpt_path = output_dir / "best.pth"
-    last_ckpt_path = output_dir / "last.pth"
+    # last_ckpt_path = output_dir / "last.pth"
 
     final_results: Dict[str, Any] = {
         "best_checkpoint": best_ckpt_path.as_posix(),
-        "last_checkpoint": last_ckpt_path.as_posix(),
+        # "last_checkpoint": last_ckpt_path.as_posix(),
         "best_epoch": trainer.best_epoch,
         "best_monitor": cfg.train.checkpoint.monitor,
         "best_score": trainer.best_score,
@@ -386,7 +386,7 @@ def main() -> None:
     print("Training Finished")
     print("=" * 80)
     print(f"Best checkpoint: {best_ckpt_path}")
-    print(f"Last checkpoint: {last_ckpt_path}")
+    # print(f"Last checkpoint: {last_ckpt_path}")
     print(f"Best epoch: {trainer.best_epoch}")
     print(f"Best {cfg.train.checkpoint.monitor}: {trainer.best_score:.6f}")
 
