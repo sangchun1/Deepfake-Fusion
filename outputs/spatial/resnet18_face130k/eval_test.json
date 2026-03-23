@@ -1,0 +1,22 @@
+{
+  "dataset_name": "face130k",
+  "dataset_class": "FACE130KDataset",
+  "split": "test",
+  "checkpoint": "C:/Deepfake-Fusion/outputs/spatial/resnet18_face130k/best.pth",
+  "metrics": {
+    "accuracy": 0.9999625664445609,
+    "precision": 0.9999213527329925,
+    "recall": 1.0,
+    "f1": 0.9999606748200873,
+    "auc": 0.9999999775275848,
+    "loss": 0.00019921679567113423
+  },
+  "dataset_size": 26714,
+  "class_counts": {
+    "0": 14000,
+    "1": 12714
+  },
+  "best_score_in_checkpoint": 1.0000000000000002,
+  "best_epoch_in_checkpoint": 2,
+  "saved_epoch": 2
+}
