@@ -422,7 +422,7 @@ class Trainer:
             # if epoch % self.save_interval == 0:
             #     self._save_checkpoint(f"epoch_{epoch:03d}.pth", epoch, epoch_log)
 
-            self._save_checkpoint("last.pth", epoch, epoch_log)
+            # self._save_checkpoint("last.pth", epoch, epoch_log)
             self._step_scheduler(metrics_for_scheduler=monitor_source)
 
             epoch_log["epoch"] = epoch
