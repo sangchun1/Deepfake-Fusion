@@ -15,6 +15,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.deepfake_fusion.datasets.cifake_dataset import CIFAKEDataset
 from src.deepfake_fusion.datasets.face130k_dataset import FACE130KDataset
+from src.deepfake_fusion.datasets.genimage_dataset import GenImageDataset
 from src.deepfake_fusion.engine.trainer import Trainer
 from src.deepfake_fusion.models.build_model import build_model, get_model_summary
 from src.deepfake_fusion.transforms.image_aug import build_transforms_from_config
@@ -35,6 +36,8 @@ DATASET_REGISTRY: Dict[str, Type] = {
     "CIFAKEDataset": CIFAKEDataset,
     "face130k": FACE130KDataset,
     "FACE130KDataset": FACE130KDataset,
+    "genimage": GenImageDataset,
+    "GenImageDataset": GenImageDataset,
 }
 
 
