@@ -219,16 +219,16 @@ python scripts/visualize.py --config configs/train/fusion_resnet18_spai.yaml
 
 ## 11. Planned Results Table
 
-| Dataset   | Model                     | Input Type          | Accuracy | Precision | Recall | F1 | ROC-AUC |
-| --------- | ------------------------- | ------------------- | -------- | --------- | ------ | -- | ------- |
-| CIFAKE    | ResNet-18                 | Spatial             | -        | -         | -      | -  | -       |
-| CIFAKE    | EffecientNet-V2(Optional) | Spatial             | -        | -         | -      | -  | -       |
-| CIFAKE    | SPAI                      | Frequency           | -        | -         | -      | -  | -       |
-| CIFAKE    | Fusion                    | Spatial + Frequency | -        | -         | -      | -  | -       |
-| 130k Face | ResNet-18                 | Spatial             | -        | -         | -      | -  | -       |
-| 130k Face | EffecientNet-V2(Optional) | Spatial             | -        | -         | -      | -  | -       |
-| 130k Face | SPAI                      | Frequency           | -        | -         | -      | -  | -       |
-| 130k Face | Fusion                    | Spatial + Frequency | -        | -         | -      | -  | -       |
+| Dataset   | Model     | Input Type          | Accuracy | Precision | Recall | F1 | ROC-AUC |
+| --------- | --------- | ------------------- | -------- | --------- | ------ | -- | ------- |
+| CIFAKE    | ResNet-18 | Spatial             | -        | -         | -      | -  | -       |
+| CIFAKE    | ViT       | Spatial             | -        | -         | -      | -  | -       |
+| CIFAKE    | SPAI      | Frequency           | -        | -         | -      | -  | -       |
+| CIFAKE    | Fusion    | Spatial + Frequency | -        | -         | -      | -  | -       |
+| 130k Face | ResNet-18 | Spatial             | -        | -         | -      | -  | -       |
+| 130k Face | ViT       | Spatial             | -        | -         | -      | -  | -       |
+| 130k Face | SPAI      | Frequency           | -        | -         | -      | -  | -       |
+| 130k Face | Fusion    | Spatial + Frequency | -        | -         | -      | -  | -       |
 
 ---
 
