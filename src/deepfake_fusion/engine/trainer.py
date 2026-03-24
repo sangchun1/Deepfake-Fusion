@@ -197,6 +197,15 @@ class Trainer:
         self.best_score = -math.inf if self.monitor_mode == "max" else math.inf
         self.best_epoch = 0
         self.no_improve_count = 0
+        self.early_stopping_enabled = bool(
+            _cfg_get(train_cfg, "checkpoint", "early_stopping", "enabled", default=False)
+        )
+        self.early_stopping_patience = int(
+            _cfg_get(train_cfg, "checkpoint", "early_stopping", "patience", default=5)
+        )
+        self.early_stopping_min_delta = float(
+            _cfg_get(train_cfg, "checkpoint", "early_stopping", "min_delta", default=0.0)
+        )
         self.history = []
 
         self.wandb_run = wandb_run
@@ -237,10 +246,11 @@ class Trainer:
         raise KeyError(f"Monitor metric '{name}' not found in metrics: {list(metrics.keys())}")
 
     def _is_better(self, score: float, best_score: float, mode: str) -> bool:
+        min_delta = self.early_stopping_min_delta
         if mode == "max":
-            return score > best_score
+            return score > (best_score + min_delta)
         if mode == "min":
-            return score < best_score
+            return score < (best_score - min_delta)
         raise ValueError(f"Unsupported monitor mode: {mode}")
 
     def _get_current_lr(self) -> float:
@@ -398,7 +408,6 @@ class Trainer:
     def fit(self, train_loader, val_loader=None) -> list[Dict[str, float]]:
         for epoch in range(1, self.epochs + 1):
             train_metrics = self.train_one_epoch(train_loader, epoch)
-
             epoch_log: Dict[str, float] = {f"train_{k}": v for k, v in train_metrics.items()}
 
             val_metrics = None
@@ -408,27 +417,25 @@ class Trainer:
 
             monitor_source = val_metrics if val_metrics is not None else train_metrics
             monitor_value = self._extract_monitor_value(monitor_source, self.monitor)
-
             improved = self._is_better(monitor_value, self.best_score, self.monitor_mode)
+
             if improved:
                 self.best_score = monitor_value
                 self.best_epoch = epoch
+                self.no_improve_count = 0
                 self._save_checkpoint("best.pth", epoch, epoch_log)
 
                 if self.wandb_run is not None:
                     self.wandb_run.summary["best_epoch"] = epoch
                     self.wandb_run.summary[f"best_{self.monitor}"] = monitor_value
+            else:
+                self.no_improve_count += 1
 
-            # if epoch % self.save_interval == 0:
-            #     self._save_checkpoint(f"epoch_{epoch:03d}.pth", epoch, epoch_log)
-
-            # self._save_checkpoint("last.pth", epoch, epoch_log)
             self._step_scheduler(metrics_for_scheduler=monitor_source)
 
             epoch_log["epoch"] = epoch
             epoch_log["best_score"] = self.best_score
             epoch_log["best_epoch"] = self.best_epoch
-
             self.history.append(epoch_log)
 
             if self.wandb_run is not None:
@@ -446,9 +453,20 @@ class Trainer:
 
             summary_parts.append(f"best_{self.monitor}={self.best_score:.4f}")
             summary_parts.append(f"best_epoch={self.best_epoch}")
+            summary_parts.append(f"no_improve={self.no_improve_count}")
             summary_parts.append(f"lr={self._get_current_lr():.2e}")
-
             print(" | ".join(summary_parts))
+
+            if (
+                self.early_stopping_enabled
+                and self.no_improve_count >= self.early_stopping_patience
+            ):
+                print(
+                    f"Early stopping triggered at epoch {epoch}. "
+                    f"No improvement in {self.monitor} for "
+                    f"{self.early_stopping_patience} consecutive validation checks."
+                )
+                break
 
         if self.wandb_run is not None:
             self.wandb_run.summary["final_best_epoch"] = self.best_epoch
@@ -458,5 +476,4 @@ class Trainer:
             f"Training finished. Best checkpoint: {self.output_dir / 'best.pth'} "
             f"(epoch={self.best_epoch}, {self.monitor}={self.best_score:.6f})"
         )
-
         return self.history
