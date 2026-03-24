@@ -1,0 +1,22 @@
+{
+  "best_checkpoint": "C:/Deepfake-Fusion/outputs/spatial/vit_face130k/best.pth",
+  "best_epoch": 11,
+  "best_monitor": "val_auc",
+  "best_score": 0.9999999101103395,
+  "val_metrics": {
+    "accuracy": 0.9997005315564872,
+    "precision": 0.9998426435877262,
+    "recall": 0.9995280792826805,
+    "f1": 0.999685336689742,
+    "auc": 0.9999999101103395,
+    "loss": 0.001642016108953338
+  },
+  "test_metrics": {
+    "accuracy": 0.9999251328891218,
+    "precision": 0.9999213465471134,
+    "recall": 0.9999213465471134,
+    "f1": 0.9999213465471134,
+    "auc": 0.999999977527585,
+    "loss": 0.0001947308868279114
+  }
+}

@@ -412,18 +412,18 @@ def main() -> None:
             x = image_tensor.unsqueeze(0).to(device)
             true_label = int(label_tensor.item())
 
-            with torch.no_grad():
-                logits = model(x)
+            if method == "rollout":
+                result = explainer.generate(x, target_class=None)
+                logits = result["logits"]
                 pred_prob, pred_label = get_prob_and_pred(logits)
+                target_class = pred_label if args.target_type == "pred" else true_label
+            else:
+                with torch.no_grad():
+                    logits = model(x)
+                    pred_prob, pred_label = get_prob_and_pred(logits)
 
-            group = categorize_case(true_label, pred_label)
-            if group not in target_groups:
-                continue
-            if saved_counts[group] >= args.max_per_group:
-                continue
-
-            target_class = pred_label if args.target_type == "pred" else true_label
-            result = explainer.generate(x, target_class=target_class)
+                target_class = pred_label if args.target_type == "pred" else true_label
+                result = explainer.generate(x, target_class=target_class)
 
             input_rgb = denormalize_image_tensor(image_tensor, mean=mean, std=std)
             cam = result["cam"]
