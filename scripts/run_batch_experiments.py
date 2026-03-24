@@ -7,7 +7,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Sequence
 
 import yaml
 
@@ -32,7 +32,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Run batch GenImage experiments for by_generator and/or "
-            "leave-one-generator-out (logo) splits."
+            "leave-one-generator-out (logo) splits, including optional evaluation "
+            "and Grad-CAM explanation."
         )
     )
 
@@ -77,7 +78,13 @@ def parse_args() -> argparse.Namespace:
         "--output_root",
         type=str,
         default="outputs/spatial/genimage",
-        help="Base output directory for all experiments.",
+        help="Base output directory for train/eval artifacts.",
+    )
+    parser.add_argument(
+        "--explain_root",
+        type=str,
+        default="outputs/gradcam/genimage",
+        help="Base output directory for explain artifacts.",
     )
     parser.add_argument(
         "--root_dir",
@@ -105,16 +112,23 @@ def parse_args() -> argparse.Namespace:
         help="Which split to evaluate after training.",
     )
     parser.add_argument(
+        "--explain_split",
+        type=str,
+        default=None,
+        choices=["train", "val", "test"],
+        help="Which split to explain. Defaults to eval_split.",
+    )
+    parser.add_argument(
         "--checkpoint_name",
         type=str,
         default="best.pth",
-        help="Checkpoint filename to use for evaluation.",
+        help="Checkpoint filename to use for evaluation and explanation.",
     )
     parser.add_argument(
         "--device",
         type=str,
         default=None,
-        help="Optional device override passed to train.py / evaluate.py.",
+        help="Optional device override passed to train.py / evaluate.py / explain.py.",
     )
     parser.add_argument(
         "--python",
@@ -122,16 +136,23 @@ def parse_args() -> argparse.Namespace:
         default=sys.executable,
         help="Python executable to use for subprocess calls.",
     )
+
     parser.add_argument(
         "--train_only",
         action="store_true",
-        help="Only run training, skip evaluation.",
+        help="Only run training, skip evaluation and explanation.",
     )
     parser.add_argument(
         "--eval_only",
         action="store_true",
-        help="Only run evaluation, skip training.",
+        help="Only run evaluation, skip training and explanation.",
     )
+    parser.add_argument(
+        "--explain_only",
+        action="store_true",
+        help="Only run explanation, skip training and evaluation.",
+    )
+
     parser.add_argument(
         "--skip_existing_train",
         action="store_true",
@@ -143,15 +164,60 @@ def parse_args() -> argparse.Namespace:
         help="Skip evaluation if eval json already exists.",
     )
     parser.add_argument(
+        "--skip_existing_explain",
+        action="store_true",
+        help="Skip explanation if summary.json already exists.",
+    )
+    parser.add_argument(
         "--stop_on_error",
         action="store_true",
         help="Stop immediately if any experiment fails.",
     )
 
+    parser.add_argument(
+        "--run_explain",
+        action="store_true",
+        help="Run explain.py after evaluation.",
+    )
+    parser.add_argument(
+        "--target_type",
+        type=str,
+        default="pred",
+        choices=["pred", "true"],
+        help="Grad-CAM target type.",
+    )
+    parser.add_argument(
+        "--max_per_group",
+        type=int,
+        default=4,
+        help="Max Grad-CAM examples per group.",
+    )
+    parser.add_argument(
+        "--alpha",
+        type=float,
+        default=0.35,
+        help="Grad-CAM overlay alpha.",
+    )
+    parser.add_argument(
+        "--target_layer",
+        type=str,
+        default=None,
+        help="Optional explicit Grad-CAM target layer.",
+    )
+
     args = parser.parse_args()
 
-    if args.train_only and args.eval_only:
-        raise ValueError("--train_only and --eval_only cannot both be set.")
+    mode_flags = [args.train_only, args.eval_only, args.explain_only]
+    if sum(bool(x) for x in mode_flags) > 1:
+        raise ValueError(
+            "--train_only, --eval_only, --explain_only 중 하나만 사용할 수 있습니다."
+        )
+
+    if args.explain_only:
+        args.run_explain = True
+
+    if args.explain_split is None:
+        args.explain_split = args.eval_split
 
     return args
 
@@ -216,8 +282,6 @@ def build_generated_data_config(
     cfg["paths"]["val_csv"] = exp_dir.joinpath("val.csv").as_posix()
     cfg["paths"]["test_csv"] = exp_dir.joinpath("test.csv").as_posix()
 
-    # dataset registry는 dataset_class를 우선 사용하므로 name은 바뀌어도 무방하지만,
-    # 실험 추적을 위해 구체적인 이름을 붙여둔다.
     base_name = str(cfg.get("name", "genimage"))
     cfg["name"] = f"{base_name}_{exp_dir.parent.name}_{exp_dir.name}"
 
@@ -280,6 +344,49 @@ def make_eval_command(
     return cmd
 
 
+def make_explain_command(
+    python_executable: str,
+    data_config: Path,
+    model_config: Path,
+    train_config: Path,
+    checkpoint_path: Path,
+    explain_split: str,
+    save_dir: Path,
+    device: str | None,
+    target_type: str,
+    max_per_group: int,
+    alpha: float,
+    target_layer: str | None,
+) -> List[str]:
+    cmd = [
+        python_executable,
+        "scripts/explain.py",
+        "--data_config",
+        data_config.as_posix(),
+        "--model_config",
+        model_config.as_posix(),
+        "--train_config",
+        train_config.as_posix(),
+        "--checkpoint",
+        checkpoint_path.as_posix(),
+        "--split",
+        explain_split,
+        "--save_dir",
+        save_dir.as_posix(),
+        "--target_type",
+        target_type,
+        "--max_per_group",
+        str(max_per_group),
+        "--alpha",
+        str(alpha),
+    ]
+    if device is not None:
+        cmd.extend(["--device", device])
+    if target_layer is not None:
+        cmd.extend(["--target_layer", target_layer])
+    return cmd
+
+
 def run_command(cmd: Sequence[str], cwd: Path) -> None:
     print("=" * 100)
     print("Running command:")
@@ -304,6 +411,7 @@ def main() -> None:
     splits_root = resolve_path(args.splits_root)
     generated_config_dir = resolve_path(args.generated_config_dir)
     output_root = resolve_path(args.output_root)
+    explain_root = resolve_path(args.explain_root)
 
     base_data_cfg = load_yaml(base_data_config_path)
 
@@ -320,10 +428,14 @@ def main() -> None:
         "splits_root": splits_root.as_posix(),
         "generated_config_dir": generated_config_dir.as_posix(),
         "output_root": output_root.as_posix(),
+        "explain_root": explain_root.as_posix(),
         "root_dir_override": args.root_dir,
         "train_only": args.train_only,
         "eval_only": args.eval_only,
+        "explain_only": args.explain_only,
+        "run_explain": args.run_explain,
         "eval_split": args.eval_split,
+        "explain_split": args.explain_split,
         "checkpoint_name": args.checkpoint_name,
         "selected_names": sorted(selected_names) if selected_names else None,
         "results": [],
@@ -345,6 +457,16 @@ def main() -> None:
             checkpoint_path = output_dir / args.checkpoint_name
             eval_json_path = output_dir / f"eval_{args.eval_split}.json"
 
+            # explain.py는 save_dir 아래에 dataset_name/split/checkpoint_stem 을 추가로 생성한다.
+            explain_base_dir = explain_root / mode / exp_name
+            explain_summary_path = (
+                explain_base_dir
+                / f"{base_data_cfg.get('name', 'genimage')}_{mode}_{exp_name}"
+                / args.explain_split
+                / Path(args.checkpoint_name).stem
+                / "summary.json"
+            )
+
             result = {
                 "mode": mode,
                 "experiment_name": exp_name,
@@ -353,8 +475,11 @@ def main() -> None:
                 "output_dir": output_dir.as_posix(),
                 "train_status": "not_run",
                 "eval_status": "not_run",
+                "explain_status": "not_run",
                 "checkpoint_path": checkpoint_path.as_posix(),
                 "eval_json_path": eval_json_path.as_posix(),
+                "explain_base_dir": explain_base_dir.as_posix(),
+                "explain_summary_path": explain_summary_path.as_posix(),
                 "error": None,
             }
 
@@ -370,7 +495,7 @@ def main() -> None:
                     root_dir_override=args.root_dir,
                 )
 
-                if not args.eval_only:
+                if not args.eval_only and not args.explain_only:
                     if args.skip_existing_train and checkpoint_path.exists():
                         print(
                             f"Skip training because checkpoint already exists: {checkpoint_path}"
@@ -388,7 +513,7 @@ def main() -> None:
                         run_command(train_cmd, cwd=project_root)
                         result["train_status"] = "done"
 
-                if not args.train_only:
+                if not args.train_only and not args.explain_only:
                     if args.skip_existing_eval and eval_json_path.exists():
                         print(
                             f"Skip evaluation because eval json already exists: {eval_json_path}"
@@ -413,12 +538,43 @@ def main() -> None:
                         run_command(eval_cmd, cwd=project_root)
                         result["eval_status"] = "done"
 
+                if args.run_explain:
+                    if args.skip_existing_explain and explain_summary_path.exists():
+                        print(
+                            f"Skip explanation because summary already exists: {explain_summary_path}"
+                        )
+                        result["explain_status"] = "skipped_existing"
+                    else:
+                        if not checkpoint_path.exists():
+                            raise FileNotFoundError(
+                                f"Checkpoint for explanation not found: {checkpoint_path}"
+                            )
+
+                        explain_cmd = make_explain_command(
+                            python_executable=args.python,
+                            data_config=generated_data_config_path,
+                            model_config=model_config_path,
+                            train_config=train_config_path,
+                            checkpoint_path=checkpoint_path,
+                            explain_split=args.explain_split,
+                            save_dir=explain_base_dir,
+                            device=args.device,
+                            target_type=args.target_type,
+                            max_per_group=args.max_per_group,
+                            alpha=args.alpha,
+                            target_layer=args.target_layer,
+                        )
+                        run_command(explain_cmd, cwd=project_root)
+                        result["explain_status"] = "done"
+
             except Exception as e:
                 result["error"] = str(e)
-                if result["train_status"] == "not_run" and not args.eval_only:
+                if result["train_status"] == "not_run" and not args.eval_only and not args.explain_only:
                     result["train_status"] = "failed"
-                if result["eval_status"] == "not_run" and not args.train_only:
+                if result["eval_status"] == "not_run" and not args.train_only and not args.explain_only:
                     result["eval_status"] = "failed"
+                if result["explain_status"] == "not_run" and args.run_explain:
+                    result["explain_status"] = "failed"
 
                 print(f"[ERROR] {mode}/{exp_name}: {e}")
 
