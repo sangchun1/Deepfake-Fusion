@@ -42,6 +42,7 @@ dependencies = [
   "torchattacks>=3.5.1",
 
   # dataset download / api
+  "datasets>=2.19",
   "kagglehub>=0.3",
 ]
 

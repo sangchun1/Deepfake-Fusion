@@ -1,0 +1,35 @@
+name: openfake
+dataset_class: GenImageDataset
+num_classes: 2
+task: binary_classification
+
+paths:
+  root_dir: data/raw/openfake
+  train_csv: null
+  val_csv: null
+  test_csv: data/splits/openfake/default_test.csv
+
+image:
+  input_size: 224
+  channels: 3
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+labels:
+  real: 0
+  fake: 1
+
+dataloader:
+  batch_size: 64
+  num_workers: 4
+  pin_memory: true
+  drop_last: false
+
+train:
+  shuffle: false
+
+val:
+  shuffle: false
+
+test:
+  shuffle: false
