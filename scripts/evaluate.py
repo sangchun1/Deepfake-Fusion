@@ -57,7 +57,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--train_config",
         type=str,
-        default="configs/train/spatial_cifake.yaml",
+        default="configs/train/spatial_resnet_cifake.yaml",
         help="Path to train config YAML.",
     )
     parser.add_argument(

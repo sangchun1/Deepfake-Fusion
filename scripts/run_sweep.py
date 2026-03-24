@@ -38,6 +38,8 @@ DATASET_REGISTRY: Dict[str, Type] = {
     "FACE130KDataset": FACE130KDataset,
     "genimage": GenImageDataset,
     "GenImageDataset": GenImageDataset,
+    "openfake": GenImageDataset,
+    "OpenFakeDataset": GenImageDataset,
 }
 
 
@@ -58,7 +60,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--train_config",
         type=str,
-        default="configs/train/spatial_cifake.yaml",
+        default="configs/train/spatial_resnet_cifake.yaml",
         help="Path to train config YAML.",
     )
     parser.add_argument(
@@ -132,8 +134,8 @@ def get_dataset_class(cfg):
 
     if dataset_key is None:
         raise ValueError(
-            "Could not determine dataset class. Set cfg.data.dataset_class "
-            "or cfg.data.name in the data config."
+            "Could not determine dataset class. "
+            "Set cfg.data.dataset_class or cfg.data.name in the data config."
         )
 
     if dataset_key not in DATASET_REGISTRY:
@@ -219,39 +221,97 @@ def build_datasets_and_loaders(cfg, seed: int):
     return dataset_cls, train_dataset, train_loader, val_loader, test_loader
 
 
+def _has_sweep_key(sweep_cfg, key: str) -> bool:
+    if hasattr(sweep_cfg, "keys"):
+        try:
+            return key in sweep_cfg.keys()
+        except Exception:
+            pass
+    try:
+        return key in sweep_cfg
+    except Exception:
+        return hasattr(sweep_cfg, key)
+
+
+def _get_sweep_value(sweep_cfg, key: str, default=None):
+    if _has_sweep_key(sweep_cfg, key):
+        return getattr(sweep_cfg, key, default)
+    return default
+
+
 def apply_sweep_overrides(cfg, sweep_cfg) -> Any:
     """
     wandb.config 값으로 base config override.
-    default_sweep.yaml의 parameter 이름과 맞춰서 작성.
+    sweep yaml의 parameter 이름과 맞춰서 작성.
     """
     if not hasattr(cfg.train, "augmentation"):
         cfg.train.augmentation = {}
 
-    if "lr" in sweep_cfg:
-        cfg.train.optimizer.lr = float(sweep_cfg.lr)
+    # optimizer / dataloader / head
+    lr = _get_sweep_value(sweep_cfg, "lr")
+    if lr is not None:
+        cfg.train.optimizer.lr = float(lr)
 
-    if "weight_decay" in sweep_cfg:
-        cfg.train.optimizer.weight_decay = float(sweep_cfg.weight_decay)
+    weight_decay = _get_sweep_value(sweep_cfg, "weight_decay")
+    if weight_decay is not None:
+        cfg.train.optimizer.weight_decay = float(weight_decay)
 
-    if "batch_size" in sweep_cfg:
-        cfg.data.dataloader.batch_size = int(sweep_cfg.batch_size)
+    batch_size = _get_sweep_value(sweep_cfg, "batch_size")
+    if batch_size is not None:
+        cfg.data.dataloader.batch_size = int(batch_size)
 
-    if "dropout" in sweep_cfg:
-        cfg.model.head.dropout = float(sweep_cfg.dropout)
+    dropout = _get_sweep_value(sweep_cfg, "dropout")
+    if dropout is not None and hasattr(cfg.model, "head"):
+        cfg.model.head.dropout = float(dropout)
 
-    if "epochs" in sweep_cfg:
-        cfg.train.train.epochs = int(sweep_cfg.epochs)
+    # epoch / seed
+    epochs = _get_sweep_value(sweep_cfg, "epochs")
+    if epochs is not None:
+        cfg.train.train.epochs = int(epochs)
         if hasattr(cfg.train, "scheduler") and hasattr(cfg.train.scheduler, "t_max"):
-            cfg.train.scheduler.t_max = int(sweep_cfg.epochs)
+            cfg.train.scheduler.t_max = int(epochs)
 
-    if "seed" in sweep_cfg:
-        cfg.train.experiment.seed = int(sweep_cfg.seed)
+    seed = _get_sweep_value(sweep_cfg, "seed")
+    if seed is not None:
+        cfg.train.experiment.seed = int(seed)
 
-    if "rotation_degrees" in sweep_cfg:
-        cfg.train.augmentation["rotation_degrees"] = float(sweep_cfg.rotation_degrees)
+    # augmentation
+    rotation_degrees = _get_sweep_value(sweep_cfg, "rotation_degrees")
+    if rotation_degrees is not None:
+        cfg.train.augmentation["rotation_degrees"] = float(rotation_degrees)
 
-    if "color_jitter_prob" in sweep_cfg:
-        cfg.train.augmentation["color_jitter_prob"] = float(sweep_cfg.color_jitter_prob)
+    color_jitter_prob = _get_sweep_value(sweep_cfg, "color_jitter_prob")
+    if color_jitter_prob is not None:
+        cfg.train.augmentation["color_jitter_prob"] = float(color_jitter_prob)
+
+    # ViT / transformer 관련 optional overrides
+    drop_path_rate = _get_sweep_value(sweep_cfg, "drop_path_rate")
+    if drop_path_rate is not None and hasattr(cfg.model, "backbone"):
+        cfg.model.backbone.drop_path_rate = float(drop_path_rate)
+
+    freeze_backbone = _get_sweep_value(sweep_cfg, "freeze_backbone")
+    if freeze_backbone is not None and hasattr(cfg.model, "backbone"):
+        cfg.model.backbone.freeze = bool(freeze_backbone)
+
+    img_size = _get_sweep_value(sweep_cfg, "img_size")
+    if img_size is not None and hasattr(cfg.model, "backbone"):
+        cfg.model.backbone.img_size = int(img_size)
+
+    warmup_epochs = _get_sweep_value(sweep_cfg, "warmup_epochs")
+    if (
+        warmup_epochs is not None
+        and hasattr(cfg.train, "scheduler")
+        and hasattr(cfg.train.scheduler, "warmup_epochs")
+    ):
+        cfg.train.scheduler.warmup_epochs = int(warmup_epochs)
+
+    min_lr = _get_sweep_value(sweep_cfg, "min_lr")
+    if (
+        min_lr is not None
+        and hasattr(cfg.train, "scheduler")
+        and hasattr(cfg.train.scheduler, "min_lr")
+    ):
+        cfg.train.scheduler.min_lr = float(min_lr)
 
     return cfg
 
@@ -356,13 +416,11 @@ def main() -> None:
         save_json({"history": history}, history_path)
 
         best_ckpt_path = output_dir / "best.pth"
-        # last_ckpt_path = output_dir / "last.pth"
 
         final_results: Dict[str, Any] = {
             "dataset_name": getattr(cfg.data, "name", "unknown"),
             "dataset_class": dataset_cls.__name__,
             "best_checkpoint": best_ckpt_path.as_posix(),
-            # "last_checkpoint": last_ckpt_path.as_posix(),
             "best_epoch": trainer.best_epoch,
             "best_monitor": cfg.train.checkpoint.monitor,
             "best_score": trainer.best_score,

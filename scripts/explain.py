@@ -24,6 +24,7 @@ from src.deepfake_fusion.utils.config import (
     resolve_path,
 )
 from src.deepfake_fusion.utils.seed import seed_everything
+from src.deepfake_fusion.visualization.attention_rollout import AttentionRollout
 from src.deepfake_fusion.visualization.gradcam import (
     GradCAM,
     apply_colormap_to_cam,
@@ -41,11 +42,14 @@ DATASET_REGISTRY: Dict[str, Type] = {
     "FACE130KDataset": FACE130KDataset,
     "genimage": GenImageDataset,
     "GenImageDataset": GenImageDataset,
+    # OpenFake를 GenImageDataset 로더로 처리
+    "openfake": GenImageDataset,
+    "OpenFakeDataset": GenImageDataset,
 }
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Grad-CAM visualization script.")
+    parser = argparse.ArgumentParser(description="Explanation visualization script.")
 
     parser.add_argument(
         "--data_config",
@@ -60,7 +64,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--train_config",
         type=str,
-        default="configs/train/spatial_cifake.yaml",
+        default="configs/train/spatial_resnet_cifake.yaml",
     )
     parser.add_argument(
         "--checkpoint",
@@ -81,17 +85,24 @@ def parse_args() -> argparse.Namespace:
         help="cuda / cpu / mps",
     )
     parser.add_argument(
+        "--method",
+        type=str,
+        default="auto",
+        choices=["auto", "gradcam", "rollout"],
+        help="Explanation method. 'auto' uses rollout for ViT, gradcam otherwise.",
+    )
+    parser.add_argument(
         "--target_layer",
         type=str,
         default=None,
-        help="Example: backbone.layer4.1",
+        help="Grad-CAM target layer. Example: backbone.layer4.1",
     )
     parser.add_argument(
         "--target_type",
         type=str,
         default="pred",
         choices=["pred", "true"],
-        help="Grad-CAM을 predicted class 기준으로 할지, true label 기준으로 할지 선택",
+        help="설명 대상을 predicted class 기준으로 할지, true label 기준으로 할지 선택",
     )
     parser.add_argument(
         "--max_per_group",
@@ -106,9 +117,28 @@ def parse_args() -> argparse.Namespace:
         help="overlay에서 heatmap 비중",
     )
     parser.add_argument(
+        "--head_fusion",
+        type=str,
+        default="mean",
+        choices=["mean", "max", "min"],
+        help="Attention rollout head fusion mode",
+    )
+    parser.add_argument(
+        "--discard_ratio",
+        type=float,
+        default=0.0,
+        help="Attention rollout discard ratio",
+    )
+    parser.add_argument(
+        "--start_layer",
+        type=int,
+        default=0,
+        help="Attention rollout start layer",
+    )
+    parser.add_argument(
         "--save_dir",
         type=str,
-        default="outputs/gradcam",
+        default="outputs/explain",
     )
     return parser.parse_args()
 
@@ -256,6 +286,49 @@ def build_dataset(cfg, split: str):
     return dataset_cls, dataset
 
 
+def infer_explain_method(cfg, requested_method: str) -> str:
+    if requested_method != "auto":
+        return requested_method
+
+    model_name = str(getattr(cfg.model, "name", "")).lower()
+    backbone = getattr(cfg.model, "backbone", None)
+    backbone_name = str(getattr(backbone, "name", "")).lower()
+
+    if model_name == "vit" or backbone_name.startswith("vit"):
+        return "rollout"
+
+    return "gradcam"
+
+
+def build_explainer(
+    model: torch.nn.Module,
+    method: str,
+    args: argparse.Namespace,
+):
+    if method == "gradcam":
+        target_layer = resolve_target_layer(model, args.target_layer)
+        print(f"Using target layer for Grad-CAM: {target_layer}")
+        explainer = GradCAM(model=model, target_layer=target_layer)
+        return explainer, target_layer
+
+    if method == "rollout":
+        explainer = AttentionRollout(
+            model=model,
+            head_fusion=args.head_fusion,
+            discard_ratio=float(args.discard_ratio),
+            start_layer=int(args.start_layer),
+        )
+        print(
+            "Using Attention Rollout "
+            f"(head_fusion={args.head_fusion}, "
+            f"discard_ratio={args.discard_ratio}, "
+            f"start_layer={args.start_layer})"
+        )
+        return explainer, None
+
+    raise ValueError(f"Unsupported explanation method: {method}")
+
+
 def main() -> None:
     args = parse_args()
 
@@ -307,17 +380,19 @@ def main() -> None:
     model = model.to(device)
     model.eval()
 
-    target_layer = resolve_target_layer(model, args.target_layer)
-    print(f"Using target layer for Grad-CAM: {target_layer}")
-
-    gradcam = GradCAM(model=model, target_layer=target_layer)
+    method = infer_explain_method(cfg, args.method)
+    explainer, resolved_target_layer = build_explainer(model, method, args)
 
     mean = list(cfg.data.image.mean)
     std = list(cfg.data.image.std)
 
     dataset_name = getattr(cfg.data, "name", "unknown")
     save_root = ensure_dir(
-        resolve_path(args.save_dir) / dataset_name / args.split / checkpoint_path.stem
+        resolve_path(args.save_dir)
+        / method
+        / dataset_name
+        / args.split
+        / checkpoint_path.stem
     )
 
     target_groups = ["correct_real", "correct_fake", "wrong_real", "wrong_fake"]
@@ -348,7 +423,7 @@ def main() -> None:
                 continue
 
             target_class = pred_label if args.target_type == "pred" else true_label
-            result = gradcam.generate(x, target_class=target_class)
+            result = explainer.generate(x, target_class=target_class)
 
             input_rgb = denormalize_image_tensor(image_tensor, mean=mean, std=std)
             cam = result["cam"]
@@ -356,8 +431,15 @@ def main() -> None:
             overlay_rgb = overlay_cam_on_image(input_rgb, cam, alpha=args.alpha)
 
             text_lines = [
-                f"dataset={dataset_name} | split={args.split} | group={group} | idx={idx}",
-                f"true={short_label_name(true_label)}({true_label}) | pred={short_label_name(pred_label)}({pred_label}) | prob={pred_prob:.4f}",
+                (
+                    f"dataset={dataset_name} | split={args.split} | "
+                    f"group={group} | idx={idx} | method={method}"
+                ),
+                (
+                    f"true={short_label_name(true_label)}({true_label}) | "
+                    f"pred={short_label_name(pred_label)}({pred_label}) | "
+                    f"prob={pred_prob:.4f}"
+                ),
                 f"target_type={args.target_type} | target_class={target_class}",
                 f"path={Path(filepath).name}",
             ]
@@ -380,6 +462,7 @@ def main() -> None:
             record = {
                 "index": idx,
                 "group": group,
+                "method": method,
                 "true_label": true_label,
                 "pred_label": pred_label,
                 "pred_prob": pred_prob,
@@ -392,21 +475,37 @@ def main() -> None:
             saved_counts[group] += 1
 
             print(
-                f"[Saved] group={group} | idx={idx} | "
+                f"[Saved] method={method} | group={group} | idx={idx} | "
                 f"true={true_label} pred={pred_label} prob={pred_prob:.4f} | "
                 f"{save_path}"
             )
 
     finally:
-        gradcam.remove_hooks()
+        if explainer is not None:
+            explainer.remove_hooks()
 
     summary = {
         "dataset_name": dataset_name,
         "dataset_class": dataset_cls.__name__,
         "checkpoint": checkpoint_path.as_posix(),
         "split": args.split,
+        "method": method,
         "target_type": args.target_type,
-        "target_layer": args.target_layer if args.target_layer is not None else "auto",
+        "target_layer": (
+            args.target_layer if method == "gradcam" and args.target_layer is not None
+            else (
+                str(resolved_target_layer)
+                if method == "gradcam" and resolved_target_layer is not None
+                else None
+            )
+        ),
+        "rollout": {
+            "head_fusion": args.head_fusion,
+            "discard_ratio": args.discard_ratio,
+            "start_layer": args.start_layer,
+        }
+        if method == "rollout"
+        else None,
         "resolved_save_dir": save_root.as_posix(),
         "saved_counts": dict(saved_counts),
         "records": records,
@@ -414,8 +513,9 @@ def main() -> None:
     save_json(summary, save_root / "summary.json")
 
     print("=" * 80)
-    print("Grad-CAM Finished")
+    print("Explanation Finished")
     print("=" * 80)
+    print(f"method:     {method}")
     print(f"dataset:    {dataset_name}")
     print(f"checkpoint: {checkpoint_path}")
     print(f"save_dir:   {save_root}")

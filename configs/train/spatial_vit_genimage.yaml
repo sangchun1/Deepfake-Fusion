@@ -1,7 +1,7 @@
 experiment:
-  name: spatial_resnet18_genimage
+  name: spatial_vit_genimage
   task: spatial_classification
-  output_dir: outputs/spatial/resnet18_genimage
+  output_dir: outputs/spatial/vit_genimage
   seed: 42
   device: cuda
   use_amp: true
@@ -54,7 +54,7 @@ wandb:
   enabled: true
   project: Deepfake-Fusion
   entity: null
-  name: spatial_resnet18_genimage
-  tags: ["genimage", "resnet18", "spatial"]
+  name: spatial_vit_genimage
+  tags: ["genimage", "vit", "spatial"]
   mode: online
   log_model: false
