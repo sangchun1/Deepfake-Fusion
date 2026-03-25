@@ -1,0 +1,131 @@
+project_root: C:\Deepfake-Fusion
+data:
+  name: cifake
+  dataset_class: CIFAKEDataset
+  num_classes: 2
+  task: binary_classification
+  paths:
+    root_dir: data/raw/cifake
+    train_csv: data/splits/cifake/train.csv
+    val_csv: data/splits/cifake/val.csv
+    test_csv: data/splits/cifake/test.csv
+  image:
+    input_size: 224
+    channels: 3
+    mean:
+    - 0.485
+    - 0.456
+    - 0.406
+    std:
+    - 0.229
+    - 0.224
+    - 0.225
+  labels:
+    real: 0
+    fake: 1
+  dataloader:
+    batch_size: 64
+    num_workers: 4
+    pin_memory: true
+    drop_last: false
+  train:
+    shuffle: true
+  val:
+    shuffle: false
+  test:
+    shuffle: false
+model:
+  name: spai
+  family: spectral
+  source: timm
+  backbone:
+    name: vit_small_patch16_224
+    pretrained: true
+    in_channels: 3
+    freeze: false
+    img_size: 224
+    global_pool: token
+    drop_path_rate: 0.1
+  frequency:
+    mask_mode: radial
+    radius_ratio: 0.25
+    fft_norm: ortho
+    high_from_residual: true
+    clamp_output: false
+    eps: 1.0e-08
+  aggregation:
+    selected_blocks: null
+    num_selected_blocks: 4
+    token_pool: attention
+    feature_pool: cls
+  explain:
+    rollout_branch: original
+  head:
+    num_classes: 2
+    dropout: 0.1
+    hidden_dim: null
+    hidden_dim2: null
+  checkpoint:
+    path: null
+    strict: true
+train:
+  experiment:
+    name: frequency_spai_cifake
+    task: frequency_classification
+    output_dir: outputs/frequency/spai_cifake
+    seed: 42
+    device: cuda
+    use_amp: true
+  train:
+    epochs: 15
+    grad_accum_steps: 1
+    clip_grad_norm: null
+  optimizer:
+    name: adamw
+    lr: 0.0001
+    weight_decay: 0.001
+    betas:
+    - 0.9
+    - 0.999
+  augmentation:
+    rotation_degrees: 0.0
+    color_jitter_prob: 0.0
+  scheduler:
+    name: cosine
+    t_max: 15
+    eta_min: 1.0e-06
+  loss:
+    name: cross_entropy
+    label_smoothing: 0.0
+  logging:
+    log_interval: 50
+    val_interval: 1
+    use_tqdm: true
+  checkpoint:
+    save_top_k: 1
+    monitor: val_auc
+    mode: max
+    resume_path: null
+  early_stopping:
+    enabled: true
+    patience: 5
+    min_delta: 0.0
+  evaluation:
+    metrics:
+    - accuracy
+    - precision
+    - recall
+    - f1
+    - auc
+    threshold: 0.5
+  wandb:
+    enabled: true
+    project: Deepfake-Fusion
+    entity: null
+    name: frequency_spai_cifake
+    tags:
+    - cifake
+    - spai
+    - frequency
+    mode: online
+    log_model: false

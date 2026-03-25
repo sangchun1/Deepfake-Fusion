@@ -1,0 +1,12 @@
+{
+  "mask_mode": "radial",
+  "radius_ratio": 0.25,
+  "fft_norm": "ortho",
+  "high_from_residual": true,
+  "clamp_output": false,
+  "eps": 1e-08,
+  "image_size": [
+    224,
+    224
+  ]
+}

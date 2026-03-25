@@ -1,0 +1,22 @@
+{
+  "dataset_name": "face130k",
+  "dataset_class": "FACE130KDataset",
+  "split": "test",
+  "checkpoint": "C:/Deepfake-Fusion/outputs/frequency/spai_face130k/best.pth",
+  "metrics": {
+    "accuracy": 0.9998876993336827,
+    "precision": 0.9997640953054966,
+    "recall": 1.0,
+    "f1": 0.9998820337383508,
+    "auc": 1.0,
+    "loss": 0.000279767571108548
+  },
+  "dataset_size": 26714,
+  "class_counts": {
+    "0": 14000,
+    "1": 12714
+  },
+  "best_score_in_checkpoint": 1.0,
+  "best_epoch_in_checkpoint": 2,
+  "saved_epoch": 2
+}
