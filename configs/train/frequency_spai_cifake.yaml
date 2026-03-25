@@ -40,11 +40,10 @@ checkpoint:
   monitor: val_auc
   mode: max
   resume_path: null
-
-early_stopping:
-  enabled: true
-  patience: 5
-  min_delta: 0.0
+  early_stopping:
+    enabled: true
+    patience: 5
+    min_delta: 0.0
 
 evaluation:
   metrics:
