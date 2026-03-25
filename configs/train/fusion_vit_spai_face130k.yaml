@@ -1,0 +1,64 @@
+experiment:
+  name: fusion_vit_spai_face130k
+  task: fusion_classification
+  output_dir: outputs/fusion/vit_spai_face130k
+  seed: 42
+  device: cuda
+  use_amp: true
+
+train:
+  epochs: 15
+  grad_accum_steps: 1
+  clip_grad_norm: null
+
+optimizer:
+  name: adamw
+  lr: 0.0001
+  weight_decay: 0.001
+  betas: [0.9, 0.999]
+
+augmentation:
+  rotation_degrees: 0.0
+  color_jitter_prob: 0.0
+
+scheduler:
+  name: cosine
+  t_max: 15
+  eta_min: 0.000001
+
+loss:
+  name: cross_entropy
+  label_smoothing: 0.0
+
+logging:
+  log_interval: 50
+  val_interval: 1
+  use_tqdm: true
+
+checkpoint:
+  save_top_k: 1
+  monitor: val_auc
+  mode: max
+  resume_path: null
+  early_stopping:
+    enabled: true
+    patience: 5
+    min_delta: 0.0
+
+evaluation:
+  metrics:
+    - accuracy
+    - precision
+    - recall
+    - f1
+    - auc
+  threshold: 0.5
+
+wandb:
+  enabled: true
+  project: Deepfake-Fusion
+  entity: null
+  name: fusion_vit_spai_face130k
+  tags: ["face130k", "fusion", "vit", "spai"]
+  mode: online
+  log_model: false

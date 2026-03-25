@@ -1,0 +1,43 @@
+metric:
+  name: final_val_auc
+  goal: maximize
+
+command:
+  - ${env}
+  - python
+  - ${program}
+  - --data_config
+  - configs/data/cifake.yaml
+  - --model_config
+  - configs/model/fusion.yaml
+  - --train_config
+  - configs/train/fusion_resnet_spai_cifake.yaml
+
+parameters:
+  lr:
+    distribution: log_uniform_values
+    min: 0.00003
+    max: 0.0003
+
+  weight_decay:
+    distribution: log_uniform_values
+    min: 0.00001
+    max: 0.01
+
+  batch_size:
+    values: [16, 32]
+
+  dropout:
+    values: [0.0, 0.1, 0.2]
+
+  epochs:
+    values: [12, 15]
+
+  seed:
+    values: [42]
+
+  rotation_degrees:
+    values: [0.0, 5.0, 10.0]
+
+  color_jitter_prob:
+    values: [0.0, 0.2, 0.4]

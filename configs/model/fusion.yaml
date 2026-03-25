@@ -1,0 +1,80 @@
+name: fusion
+family: fusion
+source: hybrid
+
+spatial:
+  name: resnet18
+  family: cnn
+  source: torchvision
+
+  backbone:
+    name: resnet18
+    pretrained: true
+    in_channels: 3
+    freeze: false
+
+  head:
+    num_classes: 2
+    dropout: 0.5
+    pooling: avg
+
+spectral:
+  name: spai
+  family: spectral
+  source: timm
+
+  backbone:
+    name: vit_small_patch16_224
+    pretrained: true
+    in_channels: 3
+    freeze: false
+    img_size: 224
+    global_pool: token
+    drop_path_rate: 0.1
+
+  frequency:
+    mask_mode: radial
+    radius_ratio: 0.25
+    fft_norm: ortho
+    high_from_residual: true
+    clamp_output: false
+    eps: 1.0e-8
+
+  aggregation:
+    selected_blocks: null
+    num_selected_blocks: 4
+    token_pool: attention
+    feature_pool: cls
+    spectral_feature_mode: aggregated_context
+
+  explain:
+    rollout_branch: original
+
+  head:
+    num_classes: 2
+    dropout: 0.1
+    hidden_dim: null
+    hidden_dim2: null
+
+projection:
+  out_dim: 256
+  hidden_dim: null
+  dropout: 0.1
+  activation: gelu
+  use_layernorm: true
+
+fusion:
+  gate_hidden_dim: 256
+  dropout: 0.1
+  gate_mode: channel
+  use_layernorm: true
+
+head:
+  num_classes: 2
+  hidden_dim: null
+  dropout: 0.1
+  activation: gelu
+
+checkpoint:
+  path: null
+  strict: true

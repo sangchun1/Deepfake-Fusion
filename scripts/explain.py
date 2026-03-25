@@ -188,7 +188,13 @@ def _to_plain_python(value: Any) -> Any:
 
 
 def get_frequency_cfg_dict(cfg: Any) -> Dict[str, Any]:
-    freq_cfg = _cfg_get(cfg, "model", "frequency", default=None)
+    model_name = str(_cfg_get(cfg, "model", "name", default="")).lower()
+
+    if model_name == "fusion":
+        freq_cfg = _cfg_get(cfg, "model", "spectral", "frequency", default=None)
+    else:
+        freq_cfg = _cfg_get(cfg, "model", "frequency", default=None)
+
     if freq_cfg is None:
         return {}
 
@@ -289,6 +295,42 @@ def categorize_case(true_label: int, pred_label: int) -> str:
 def short_label_name(label: int) -> str:
     return "real" if label == 0 else "fake"
 
+def is_fusion_model(model: torch.nn.Module) -> bool:
+    return hasattr(model, "spatial_branch") and hasattr(model, "spectral_branch")
+
+
+def resolve_frequency_explain_components(
+    model: torch.nn.Module,
+) -> tuple[torch.nn.Module, Any]:
+    """
+    frequency 설명에 필요한 (feature_model, frequency_encoder) 반환.
+
+    - SPAI:
+        feature_model = model
+        frequency_encoder = model.frequency_encoder
+
+    - Fusion:
+        feature_model = model
+        frequency_encoder = model.spectral_branch.frequency_encoder
+    """
+    if hasattr(model, "frequency_encoder") and hasattr(model, "extract_features"):
+        return model, model.frequency_encoder
+
+    if (
+        hasattr(model, "spectral_branch")
+        and hasattr(model, "extract_features")
+        and hasattr(model.spectral_branch, "frequency_encoder")
+    ):
+        return model, model.spectral_branch.frequency_encoder
+
+    raise ValueError(
+        "Frequency explanation requires either:\n"
+        "1) a SPAI-like model with 'frequency_encoder' and "
+        "'extract_features(return_dict=True)', or\n"
+        "2) a fusion model with 'spectral_branch.frequency_encoder' and "
+        "'extract_features(return_dict=True)'."
+    )
+
 
 def get_dataset_class(cfg):
     dataset_key = None
@@ -358,8 +400,15 @@ def infer_explain_method(cfg, requested_method: str) -> str:
 
     if model_name == "spai":
         return "frequency"
+
+    if model_name == "fusion":
+        # v1 기본값: fusion은 spatial branch 기준 Grad-CAM
+        # spectral branch를 보고 싶으면 --method frequency 사용
+        return "gradcam"
+
     if model_name == "vit" or backbone_name.startswith("vit"):
         return "rollout"
+
     return "gradcam"
 
 
@@ -375,6 +424,13 @@ def build_explainer(
         return explainer, target_layer
 
     if method == "rollout":
+        if is_fusion_model(model):
+            raise ValueError(
+                "Attention rollout is not supported for fusion v1. "
+                "Use '--method gradcam' for the spatial branch or "
+                "'--method frequency' for the spectral branch."
+            )
+
         explainer = AttentionRollout(
             model=model,
             head_fusion=args.head_fusion,
@@ -390,12 +446,13 @@ def build_explainer(
         return explainer, None
 
     if method == "frequency":
-        if not hasattr(model, "frequency_encoder") or not hasattr(model, "extract_features"):
-            raise ValueError(
-                "Frequency explanation requires a SPAI-like model with "
-                "'frequency_encoder' and 'extract_features(return_dict=True)'."
-            )
-        print("Using frequency-only explanation for SPAI.")
+        resolve_frequency_explain_components(model)
+
+        if is_fusion_model(model):
+            print("Using frequency explanation for the spectral branch inside fusion model.")
+        else:
+            print("Using frequency-only explanation for SPAI.")
+
         return None, None
 
     raise ValueError(f"Unsupported explanation method: {method}")
@@ -492,8 +549,10 @@ def main() -> None:
                     if saved_counts[group] >= args.max_per_group:
                         continue
 
-                    explain_out = model.extract_features(x, return_dict=True)
-                    split_dict = model.frequency_encoder.split_spectrum(x)
+                    feature_model, frequency_encoder = resolve_frequency_explain_components(model)
+
+                    explain_out = feature_model.extract_features(x, return_dict=True)
+                    split_dict = frequency_encoder.split_spectrum(x)
 
                 target_class = pred_label if args.target_type == "pred" else true_label
 

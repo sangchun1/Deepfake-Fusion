@@ -75,7 +75,25 @@ class SPAIClassifier(nn.Module):
         -> branch context gating (SCV/SCA-inspired lightweight aggregation)
         -> 3-layer MLP
         -> binary logits
+
+    추가:
+      - extract_features(): 기존 frequency-only head 직전 fused feature 반환
+      - extract_spectral_features(): fusion용 spectral embedding 반환
+      - forward_spectral_features(): fusion model에서 호출하기 쉬운 alias
     """
+
+    _SPECTRAL_FEATURE_MODES = {
+        "aggregated_context",
+        "context_avg",
+        "global_avg",
+        "orig_context",
+        "low_context",
+        "high_context",
+        "orig_global",
+        "low_global",
+        "high_global",
+        "fused",
+    }
 
     def __init__(
         self,
@@ -96,6 +114,7 @@ class SPAIClassifier(nn.Module):
         feature_pool: str = "cls",
         explain_branch: str = "original",
         frequency_cfg: Any = None,
+        spectral_feature_mode: str = "aggregated_context",
     ) -> None:
         super().__init__()
 
@@ -131,6 +150,10 @@ class SPAIClassifier(nn.Module):
                 "Choose from ['original', 'low', 'high']."
             )
 
+        spectral_feature_mode = self._normalize_spectral_feature_mode(
+            spectral_feature_mode
+        )
+
         backbone = _create_timm_vit(
             model_name=model_name,
             pretrained=pretrained,
@@ -153,6 +176,7 @@ class SPAIClassifier(nn.Module):
         self.token_pool_mode = token_pool
         self.feature_pool_mode = feature_pool
         self.explain_branch = explain_branch
+        self.spectral_feature_mode = spectral_feature_mode
 
         # attention_rollout.py 수정 시 branch별 hook filtering에 활용 가능하도록 유지
         self._active_branch_name: str | None = None
@@ -183,6 +207,9 @@ class SPAIClassifier(nn.Module):
         #   aggregated_context -> C
         #   similarity_stats -> 6
         self.fused_dim = (4 * self.feature_dim) + self.similarity_dim
+        self.spectral_feature_dim = self._infer_spectral_feature_dim(
+            self.spectral_feature_mode
+        )
 
         hidden_dim1 = (
             int(mlp_hidden_dim)
@@ -207,6 +234,26 @@ class SPAIClassifier(nn.Module):
 
         if freeze_backbone:
             self.freeze_backbone()
+
+    @classmethod
+    def _normalize_spectral_feature_mode(cls, mode: Optional[str]) -> str:
+        mode = str(mode or "aggregated_context").strip().lower()
+        if mode not in cls._SPECTRAL_FEATURE_MODES:
+            raise ValueError(
+                f"Unsupported spectral_feature_mode: {mode}. "
+                f"Choose from {sorted(cls._SPECTRAL_FEATURE_MODES)}."
+            )
+        return mode
+
+    def _infer_spectral_feature_dim(self, mode: Optional[str] = None) -> int:
+        mode = self._normalize_spectral_feature_mode(mode or self.spectral_feature_mode)
+        if mode == "fused":
+            return self.fused_dim
+        return self.feature_dim
+
+    def get_spectral_feature_dim(self, mode: Optional[str] = None) -> int:
+        """fusion model에서 projection layer 차원 결정 시 사용."""
+        return self._infer_spectral_feature_dim(mode)
 
     def freeze_backbone(self) -> None:
         """ViT backbone만 freeze."""
@@ -427,15 +474,10 @@ class SPAIClassifier(nn.Module):
 
         return torch.cat([cos_ol, cos_oh, cos_lh, l1_ol, l1_oh, l1_lh], dim=1)
 
-    def extract_features(
-        self,
-        x: torch.Tensor,
-        return_dict: bool = False,
-    ) -> torch.Tensor | dict[str, torch.Tensor]:
+    def _extract_multibranch_features(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """
-        classifier head 직전 fused feature 추출.
-
-        return_dict=True면 branch별 중간 결과도 함께 반환.
+        original / low / high branch 전체를 한 번에 처리하고
+        frequency-only / fusion 양쪽에서 재사용할 intermediate dict를 반환.
         """
         x_low, x_high = self.frequency_encoder(x)
 
@@ -469,9 +511,6 @@ class SPAIClassifier(nn.Module):
             dim=1,
         )  # [B, 4C + 6]
 
-        if not return_dict:
-            return fused
-
         return {
             "fused": fused,
             "x_low": x_low,
@@ -482,10 +521,114 @@ class SPAIClassifier(nn.Module):
             "orig_context": orig_out["context"],
             "low_context": low_out["context"],
             "high_context": high_out["context"],
+            "global_stack": global_stack,
+            "context_stack": context_stack,
             "aggregated_context": aggregated_context,
             "branch_weights": branch_weights.squeeze(-1),
             "similarity_stats": similarity_stats,
         }
+
+    def _select_spectral_feature(
+        self,
+        features_dict: Mapping[str, torch.Tensor],
+        mode: Optional[str] = None,
+    ) -> torch.Tensor:
+        """
+        fusion branch에서 사용할 spectral embedding 선택.
+
+        기본값:
+          aggregated_context [B, C]
+
+        지원 모드:
+          - aggregated_context
+          - context_avg
+          - global_avg
+          - orig_context / low_context / high_context
+          - orig_global / low_global / high_global
+          - fused
+        """
+        mode = self._normalize_spectral_feature_mode(mode or self.spectral_feature_mode)
+
+        if mode == "aggregated_context":
+            return features_dict["aggregated_context"]
+        if mode == "context_avg":
+            return features_dict["context_stack"].mean(dim=1)
+        if mode == "global_avg":
+            return features_dict["global_stack"].mean(dim=1)
+        if mode == "orig_context":
+            return features_dict["orig_context"]
+        if mode == "low_context":
+            return features_dict["low_context"]
+        if mode == "high_context":
+            return features_dict["high_context"]
+        if mode == "orig_global":
+            return features_dict["orig_global"]
+        if mode == "low_global":
+            return features_dict["low_global"]
+        if mode == "high_global":
+            return features_dict["high_global"]
+        if mode == "fused":
+            return features_dict["fused"]
+
+        raise RuntimeError(f"Unhandled spectral feature mode: {mode}")
+
+    def extract_features(
+        self,
+        x: torch.Tensor,
+        return_dict: bool = False,
+    ) -> torch.Tensor | dict[str, torch.Tensor]:
+        """
+        classifier head 직전 fused feature 추출.
+
+        주의:
+          - 기존 SPAI frequency-only 분류 경로용 API
+          - 반환 차원: [B, 4C + 6]
+
+        return_dict=True면 branch별 중간 결과도 함께 반환.
+        """
+        features_dict = self._extract_multibranch_features(x)
+
+        if not return_dict:
+            return features_dict["fused"]
+
+        return features_dict
+
+    def extract_spectral_features(
+        self,
+        x: torch.Tensor,
+        mode: Optional[str] = None,
+        return_dict: bool = False,
+    ) -> torch.Tensor | dict[str, torch.Tensor]:
+        """
+        fusion용 spectral embedding 추출.
+
+        기본:
+          mode=None -> self.spectral_feature_mode 사용
+          기본 모드는 aggregated_context
+
+        return:
+          - return_dict=False: selected spectral feature tensor
+          - return_dict=True : intermediate dict + spectral_feature
+        """
+        features_dict = self._extract_multibranch_features(x)
+        spectral_feature = self._select_spectral_feature(features_dict, mode=mode)
+
+        if not return_dict:
+            return spectral_feature
+
+        output = dict(features_dict)
+        output["spectral_feature"] = spectral_feature
+        return output
+
+    def forward_spectral_features(
+        self,
+        x: torch.Tensor,
+        mode: Optional[str] = None,
+    ) -> torch.Tensor:
+        """
+        fusion model에서 쓰기 쉬운 alias.
+        """
+        return self.extract_spectral_features(x, mode=mode, return_dict=False)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         fused = self.extract_features(x, return_dict=False)
@@ -513,6 +656,7 @@ def build_spai(model_cfg: Any) -> SPAIClassifier:
       cfg.model.aggregation.num_selected_blocks
       cfg.model.aggregation.token_pool
       cfg.model.aggregation.feature_pool
+      cfg.model.aggregation.spectral_feature_mode   # optional
       cfg.model.explain.rollout_branch
 
       cfg.model.head.num_classes
@@ -547,6 +691,14 @@ def build_spai(model_cfg: Any) -> SPAIClassifier:
     feature_pool = str(
         _cfg_get(model_cfg, "aggregation", "feature_pool", default="cls")
     )
+    spectral_feature_mode = str(
+        _cfg_get(
+            model_cfg,
+            "aggregation",
+            "spectral_feature_mode",
+            default="aggregated_context",
+        )
+    )
 
     explain_branch = str(
         _cfg_get(model_cfg, "explain", "rollout_branch", default="original")
@@ -572,4 +724,5 @@ def build_spai(model_cfg: Any) -> SPAIClassifier:
         feature_pool=feature_pool,
         explain_branch=explain_branch,
         frequency_cfg=frequency_cfg,
+        spectral_feature_mode=spectral_feature_mode,
     )

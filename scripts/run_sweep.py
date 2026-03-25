@@ -110,7 +110,6 @@ def build_loader(
     seed: int,
 ):
     use_workers = num_workers > 0
-
     return DataLoader(
         dataset,
         batch_size=batch_size,
@@ -126,7 +125,6 @@ def build_loader(
 
 def get_dataset_class(cfg):
     dataset_key = None
-
     if getattr(cfg.data, "dataset_class", None) is not None:
         dataset_key = str(cfg.data.dataset_class)
     elif getattr(cfg.data, "name", None) is not None:
@@ -162,8 +160,8 @@ def build_datasets_and_loaders(cfg, seed: int):
     num_workers = int(cfg.data.dataloader.num_workers)
     pin_memory = bool(cfg.data.dataloader.pin_memory)
     drop_last = bool(cfg.data.dataloader.drop_last)
-
     root_dir = cfg.data.paths.root_dir
+
     dataset_cls = get_dataset_class(cfg)
 
     train_dataset = build_single_dataset(
@@ -227,6 +225,7 @@ def _has_sweep_key(sweep_cfg, key: str) -> bool:
             return key in sweep_cfg.keys()
         except Exception:
             pass
+
     try:
         return key in sweep_cfg
     except Exception:
@@ -241,25 +240,20 @@ def _get_sweep_value(sweep_cfg, key: str, default=None):
 
 def _ensure_cfg_section(parent, section_name: str):
     """
-    cfg.<section_name> 이 없으면 빈 dict-like section 생성.
+    cfg.<section_name>이 없으면 빈 dict-like section 생성.
     """
     if not hasattr(parent, section_name) or getattr(parent, section_name) is None:
         setattr(parent, section_name, {})
     return getattr(parent, section_name)
 
 
-def apply_sweep_overrides(cfg, sweep_cfg) -> Any:
-    """
-    wandb.config 값으로 base config override.
-    sweep yaml의 parameter 이름과 맞춰서 작성.
-    """
+def _apply_common_overrides(cfg, sweep_cfg) -> Any:
     if not hasattr(cfg.train, "augmentation"):
         cfg.train.augmentation = {}
 
     if not hasattr(cfg.model, "head"):
         cfg.model.head = {}
 
-    # optimizer / dataloader / head
     lr = _get_sweep_value(sweep_cfg, "lr")
     if lr is not None:
         cfg.train.optimizer.lr = float(lr)
@@ -276,7 +270,6 @@ def apply_sweep_overrides(cfg, sweep_cfg) -> Any:
     if dropout is not None and hasattr(cfg.model, "head"):
         cfg.model.head.dropout = float(dropout)
 
-    # epoch / seed
     epochs = _get_sweep_value(sweep_cfg, "epochs")
     if epochs is not None:
         cfg.train.train.epochs = int(epochs)
@@ -287,7 +280,6 @@ def apply_sweep_overrides(cfg, sweep_cfg) -> Any:
     if seed is not None:
         cfg.train.experiment.seed = int(seed)
 
-    # augmentation
     rotation_degrees = _get_sweep_value(sweep_cfg, "rotation_degrees")
     if rotation_degrees is not None:
         cfg.train.augmentation["rotation_degrees"] = float(rotation_degrees)
@@ -295,19 +287,6 @@ def apply_sweep_overrides(cfg, sweep_cfg) -> Any:
     color_jitter_prob = _get_sweep_value(sweep_cfg, "color_jitter_prob")
     if color_jitter_prob is not None:
         cfg.train.augmentation["color_jitter_prob"] = float(color_jitter_prob)
-
-    # ViT / transformer 관련 optional overrides
-    drop_path_rate = _get_sweep_value(sweep_cfg, "drop_path_rate")
-    if drop_path_rate is not None and hasattr(cfg.model, "backbone"):
-        cfg.model.backbone.drop_path_rate = float(drop_path_rate)
-
-    freeze_backbone = _get_sweep_value(sweep_cfg, "freeze_backbone")
-    if freeze_backbone is not None and hasattr(cfg.model, "backbone"):
-        cfg.model.backbone.freeze = bool(freeze_backbone)
-
-    img_size = _get_sweep_value(sweep_cfg, "img_size")
-    if img_size is not None and hasattr(cfg.model, "backbone"):
-        cfg.model.backbone.img_size = int(img_size)
 
     warmup_epochs = _get_sweep_value(sweep_cfg, "warmup_epochs")
     if (
@@ -325,49 +304,240 @@ def apply_sweep_overrides(cfg, sweep_cfg) -> Any:
     ):
         cfg.train.scheduler.min_lr = float(min_lr)
 
-    # ------------------------------------------------------------------
-    # SPAI / frequency-specific overrides
-    # ------------------------------------------------------------------
+    return cfg
+
+
+def _apply_backbone_overrides(backbone_cfg, sweep_cfg, prefix: str = "") -> None:
+    key_prefix = f"{prefix}_" if prefix else ""
+
+    drop_path_rate = _get_sweep_value(sweep_cfg, f"{key_prefix}drop_path_rate")
+    if drop_path_rate is not None:
+        backbone_cfg.drop_path_rate = float(drop_path_rate)
+
+    freeze_backbone = _get_sweep_value(sweep_cfg, f"{key_prefix}freeze_backbone")
+    if freeze_backbone is not None:
+        backbone_cfg.freeze = bool(freeze_backbone)
+
+    img_size = _get_sweep_value(sweep_cfg, f"{key_prefix}img_size")
+    if img_size is not None:
+        backbone_cfg.img_size = int(img_size)
+
+
+def _apply_spai_family_overrides(
+    model_like_cfg,
+    sweep_cfg,
+    prefix: str = "",
+) -> None:
+    """
+    SPAI config 또는 fusion 안의 spectral SPAI config에 공통 적용.
+
+    prefix 예시:
+      - ""         -> standalone spai
+      - "spectral" -> fusion.spectral
+    """
+    key_prefix = f"{prefix}_" if prefix else ""
+
+    frequency_cfg = _ensure_cfg_section(model_like_cfg, "frequency")
+    aggregation_cfg = _ensure_cfg_section(model_like_cfg, "aggregation")
+    head_cfg = _ensure_cfg_section(model_like_cfg, "head")
+
+    if hasattr(model_like_cfg, "backbone"):
+        _apply_backbone_overrides(model_like_cfg.backbone, sweep_cfg, prefix=prefix)
+
+    radius_ratio = _get_sweep_value(sweep_cfg, f"{key_prefix}radius_ratio")
+    if radius_ratio is not None:
+        frequency_cfg.radius_ratio = float(radius_ratio)
+
+    high_from_residual = _get_sweep_value(
+        sweep_cfg,
+        f"{key_prefix}high_from_residual",
+    )
+    if high_from_residual is not None:
+        frequency_cfg.high_from_residual = bool(high_from_residual)
+
+    mask_mode = _get_sweep_value(sweep_cfg, f"{key_prefix}mask_mode")
+    if mask_mode is not None:
+        frequency_cfg.mask_mode = str(mask_mode)
+
+    num_selected_blocks = _get_sweep_value(
+        sweep_cfg,
+        f"{key_prefix}num_selected_blocks",
+    )
+    if num_selected_blocks is not None:
+        aggregation_cfg.num_selected_blocks = int(num_selected_blocks)
+        if hasattr(aggregation_cfg, "selected_blocks"):
+            aggregation_cfg.selected_blocks = None
+
+    token_pool = _get_sweep_value(sweep_cfg, f"{key_prefix}token_pool")
+    if token_pool is not None:
+        aggregation_cfg.token_pool = str(token_pool)
+
+    feature_pool = _get_sweep_value(sweep_cfg, f"{key_prefix}feature_pool")
+    if feature_pool is not None:
+        aggregation_cfg.feature_pool = str(feature_pool)
+
+    spectral_feature_mode = _get_sweep_value(
+        sweep_cfg,
+        f"{key_prefix}spectral_feature_mode",
+    )
+    if spectral_feature_mode is not None:
+        aggregation_cfg.spectral_feature_mode = str(spectral_feature_mode)
+
+    mlp_hidden_dim = _get_sweep_value(sweep_cfg, f"{key_prefix}mlp_hidden_dim")
+    if mlp_hidden_dim is not None:
+        head_cfg.hidden_dim = int(mlp_hidden_dim)
+
+    mlp_hidden_dim2 = _get_sweep_value(sweep_cfg, f"{key_prefix}mlp_hidden_dim2")
+    if mlp_hidden_dim2 is not None:
+        head_cfg.hidden_dim2 = int(mlp_hidden_dim2)
+
+
+def _apply_standalone_model_overrides(cfg, sweep_cfg) -> Any:
     model_name = str(getattr(cfg.model, "name", "")).lower()
+
+    if model_name in {"vit", "resnet18"} and hasattr(cfg.model, "backbone"):
+        _apply_backbone_overrides(cfg.model.backbone, sweep_cfg, prefix="")
+
     if model_name == "spai":
-        frequency_cfg = _ensure_cfg_section(cfg.model, "frequency")
-        aggregation_cfg = _ensure_cfg_section(cfg.model, "aggregation")
+        _apply_spai_family_overrides(cfg.model, sweep_cfg, prefix="")
 
-        radius_ratio = _get_sweep_value(sweep_cfg, "radius_ratio")
-        if radius_ratio is not None:
-            frequency_cfg.radius_ratio = float(radius_ratio)
+    return cfg
 
-        high_from_residual = _get_sweep_value(sweep_cfg, "high_from_residual")
-        if high_from_residual is not None:
-            frequency_cfg.high_from_residual = bool(high_from_residual)
 
-        mask_mode = _get_sweep_value(sweep_cfg, "mask_mode")
-        if mask_mode is not None:
-            frequency_cfg.mask_mode = str(mask_mode)
+def _apply_fusion_overrides(cfg, sweep_cfg) -> Any:
+    if str(getattr(cfg.model, "name", "")).lower() != "fusion":
+        return cfg
 
-        num_selected_blocks = _get_sweep_value(sweep_cfg, "num_selected_blocks")
-        if num_selected_blocks is not None:
-            aggregation_cfg.num_selected_blocks = int(num_selected_blocks)
-            # num_selected_blocks sweep를 쓰면 selected_blocks 직접 지정은 해제
-            if hasattr(aggregation_cfg, "selected_blocks"):
-                aggregation_cfg.selected_blocks = None
+    spatial_cfg = _ensure_cfg_section(cfg.model, "spatial")
+    spectral_cfg = _ensure_cfg_section(cfg.model, "spectral")
+    projection_cfg = _ensure_cfg_section(cfg.model, "projection")
+    fusion_cfg = _ensure_cfg_section(cfg.model, "fusion")
+    head_cfg = _ensure_cfg_section(cfg.model, "head")
 
-        token_pool = _get_sweep_value(sweep_cfg, "token_pool")
-        if token_pool is not None:
-            aggregation_cfg.token_pool = str(token_pool)
+    if hasattr(spatial_cfg, "backbone"):
+        _apply_backbone_overrides(spatial_cfg.backbone, sweep_cfg, prefix="spatial")
 
-        feature_pool = _get_sweep_value(sweep_cfg, "feature_pool")
-        if feature_pool is not None:
-            aggregation_cfg.feature_pool = str(feature_pool)
+    if hasattr(spectral_cfg, "backbone"):
+        _apply_backbone_overrides(spectral_cfg.backbone, sweep_cfg, prefix="spectral")
 
-        mlp_hidden_dim = _get_sweep_value(sweep_cfg, "mlp_hidden_dim")
-        if mlp_hidden_dim is not None and hasattr(cfg.model, "head"):
-            cfg.model.head.hidden_dim = int(mlp_hidden_dim)
+    spectral_name = str(getattr(spectral_cfg, "name", "")).lower()
+    if spectral_name == "spai":
+        _apply_spai_family_overrides(spectral_cfg, sweep_cfg, prefix="spectral")
 
-        mlp_hidden_dim2 = _get_sweep_value(sweep_cfg, "mlp_hidden_dim2")
-        if mlp_hidden_dim2 is not None and hasattr(cfg.model, "head"):
-            cfg.model.head.hidden_dim2 = int(mlp_hidden_dim2)
+    projection_out_dim = _get_sweep_value(sweep_cfg, "projection_out_dim")
+    if projection_out_dim is not None:
+        projection_cfg.out_dim = int(projection_out_dim)
 
+    projection_hidden_dim = _get_sweep_value(sweep_cfg, "projection_hidden_dim")
+    if projection_hidden_dim is not None:
+        projection_cfg.hidden_dim = int(projection_hidden_dim)
+
+    projection_dropout = _get_sweep_value(sweep_cfg, "projection_dropout")
+    if projection_dropout is not None:
+        projection_cfg.dropout = float(projection_dropout)
+
+    projection_activation = _get_sweep_value(sweep_cfg, "projection_activation")
+    if projection_activation is not None:
+        projection_cfg.activation = str(projection_activation)
+
+    projection_use_layernorm = _get_sweep_value(
+        sweep_cfg,
+        "projection_use_layernorm",
+    )
+    if projection_use_layernorm is not None:
+        projection_cfg.use_layernorm = bool(projection_use_layernorm)
+
+    gate_hidden_dim = _get_sweep_value(sweep_cfg, "gate_hidden_dim")
+    if gate_hidden_dim is not None:
+        fusion_cfg.gate_hidden_dim = int(gate_hidden_dim)
+
+    gate_mode = _get_sweep_value(sweep_cfg, "gate_mode")
+    if gate_mode is not None:
+        fusion_cfg.gate_mode = str(gate_mode)
+
+    fusion_dropout = _get_sweep_value(sweep_cfg, "fusion_dropout")
+    if fusion_dropout is not None:
+        fusion_cfg.dropout = float(fusion_dropout)
+
+    fusion_use_layernorm = _get_sweep_value(sweep_cfg, "fusion_use_layernorm")
+    if fusion_use_layernorm is not None:
+        fusion_cfg.use_layernorm = bool(fusion_use_layernorm)
+
+    head_hidden_dim = _get_sweep_value(sweep_cfg, "head_hidden_dim")
+    if head_hidden_dim is not None:
+        head_cfg.hidden_dim = int(head_hidden_dim)
+
+    head_dropout = _get_sweep_value(sweep_cfg, "head_dropout")
+    if head_dropout is not None:
+        head_cfg.dropout = float(head_dropout)
+
+    head_activation = _get_sweep_value(sweep_cfg, "head_activation")
+    if head_activation is not None:
+        head_cfg.activation = str(head_activation)
+
+    return cfg
+
+
+def apply_sweep_overrides(cfg, sweep_cfg) -> Any:
+    """
+    wandb.config 값으로 base config override.
+
+    공통 파라미터:
+      - lr
+      - weight_decay
+      - batch_size
+      - dropout
+      - epochs
+      - seed
+      - rotation_degrees
+      - color_jitter_prob
+      - warmup_epochs
+      - min_lr
+
+    standalone model:
+      - drop_path_rate
+      - freeze_backbone
+      - img_size
+      - radius_ratio
+      - high_from_residual
+      - mask_mode
+      - num_selected_blocks
+      - token_pool
+      - feature_pool
+      - spectral_feature_mode
+      - mlp_hidden_dim
+      - mlp_hidden_dim2
+
+    fusion model:
+      - spatial_freeze_backbone
+      - spectral_freeze_backbone
+      - spectral_drop_path_rate
+      - spectral_img_size
+      - spectral_radius_ratio
+      - spectral_high_from_residual
+      - spectral_mask_mode
+      - spectral_num_selected_blocks
+      - spectral_token_pool
+      - spectral_feature_pool
+      - spectral_spectral_feature_mode
+      - spectral_mlp_hidden_dim
+      - spectral_mlp_hidden_dim2
+      - projection_out_dim
+      - projection_hidden_dim
+      - projection_dropout
+      - projection_activation
+      - projection_use_layernorm
+      - gate_hidden_dim
+      - gate_mode
+      - fusion_dropout
+      - fusion_use_layernorm
+      - head_hidden_dim
+      - head_dropout
+      - head_activation
+    """
+    cfg = _apply_common_overrides(cfg, sweep_cfg)
+    cfg = _apply_standalone_model_overrides(cfg, sweep_cfg)
+    cfg = _apply_fusion_overrides(cfg, sweep_cfg)
     return cfg
 
 
@@ -461,7 +631,6 @@ def main() -> None:
         print("=" * 80)
         print("Start Sweep Training")
         print("=" * 80)
-
         history = trainer.fit(
             train_loader=train_loader,
             val_loader=val_loader,
@@ -488,7 +657,7 @@ def main() -> None:
             if val_loader is not None:
                 val_metrics = trainer.evaluate(val_loader, split="val")
                 final_results["val_metrics"] = val_metrics
-                print(f"[Best Val]  {format_metrics(val_metrics)}")
+                print(f"[Best Val] {format_metrics(val_metrics)}")
 
                 if "auc" in val_metrics:
                     wandb.log({"final_val_auc": val_metrics["auc"]})
