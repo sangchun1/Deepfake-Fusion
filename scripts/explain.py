@@ -42,7 +42,6 @@ DATASET_REGISTRY: Dict[str, Type] = {
     "FACE130KDataset": FACE130KDataset,
     "genimage": GenImageDataset,
     "GenImageDataset": GenImageDataset,
-    # OpenFake를 GenImageDataset 로더로 처리
     "openfake": GenImageDataset,
     "OpenFakeDataset": GenImageDataset,
 }
@@ -238,8 +237,8 @@ def get_dataset_class(cfg):
 
     if dataset_key is None:
         raise ValueError(
-            "Could not determine dataset class. Set cfg.data.dataset_class "
-            "or cfg.data.name in the data config."
+            "Could not determine dataset class. "
+            "Set cfg.data.dataset_class or cfg.data.name in the data config."
         )
 
     if dataset_key not in DATASET_REGISTRY:
@@ -416,14 +415,23 @@ def main() -> None:
                 result = explainer.generate(x, target_class=None)
                 logits = result["logits"]
                 pred_prob, pred_label = get_prob_and_pred(logits)
-                target_class = pred_label if args.target_type == "pred" else true_label
             else:
                 with torch.no_grad():
                     logits = model(x)
-                    pred_prob, pred_label = get_prob_and_pred(logits)
+                pred_prob, pred_label = get_prob_and_pred(logits)
 
-                target_class = pred_label if args.target_type == "pred" else true_label
+            group = categorize_case(true_label, pred_label)
+            if group not in target_groups:
+                continue
+            if saved_counts[group] >= args.max_per_group:
+                continue
+
+            target_class = pred_label if args.target_type == "pred" else true_label
+
+            if method == "gradcam":
                 result = explainer.generate(x, target_class=target_class)
+            else:
+                result["target_class"] = int(target_class)
 
             input_rgb = denormalize_image_tensor(image_tensor, mean=mean, std=std)
             cam = result["cam"]
