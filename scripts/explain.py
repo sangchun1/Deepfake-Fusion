@@ -5,7 +5,7 @@ import json
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Type
+from typing import Any, Dict, List, Mapping, Optional, Type
 
 import torch
 
@@ -17,9 +17,14 @@ from src.deepfake_fusion.datasets.cifake_dataset import CIFAKEDataset
 from src.deepfake_fusion.datasets.face130k_dataset import FACE130KDataset
 from src.deepfake_fusion.datasets.genimage_dataset import GenImageDataset
 from src.deepfake_fusion.models.build_model import build_model
-from src.deepfake_fusion.transforms.image_aug import build_image_transform
+from src.deepfake_fusion.transforms.robustness import (
+    build_clean_eval_transform,
+    build_corrupted_eval_transform,
+    get_corruption_params,
+)
 from src.deepfake_fusion.utils.config import (
     load_experiment_config,
+    load_yaml,
     pretty_print_config,
     resolve_path,
 )
@@ -70,6 +75,12 @@ def parse_args() -> argparse.Namespace:
         "--train_config",
         type=str,
         default="configs/train/spatial_resnet_cifake.yaml",
+    )
+    parser.add_argument(
+        "--robustness_config",
+        type=str,
+        default="configs/train/robustness.yaml",
+        help="Path to robustness config YAML. Used only when corruption != clean.",
     )
     parser.add_argument(
         "--checkpoint",
@@ -150,6 +161,18 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="frequency method에서 panel 외 개별 이미지도 함께 저장",
     )
+    parser.add_argument(
+        "--corruption",
+        type=str,
+        default="clean",
+        help="Corruption name for robustness explain. Example: clean, jpeg, gaussian_blur, gaussian_noise, resize_down_up",
+    )
+    parser.add_argument(
+        "--severity",
+        type=int,
+        default=1,
+        help="Corruption severity level (1-based). Ignored when corruption=clean.",
+    )
     return parser.parse_args()
 
 
@@ -185,6 +208,40 @@ def _to_plain_python(value: Any) -> Any:
         except Exception:
             return value
     return value
+
+
+def _normalize_corruption_name(name: Optional[str]) -> str:
+    if name is None:
+        return "clean"
+
+    name = str(name).strip().lower()
+    aliases = {
+        "clean": "clean",
+        "none": "clean",
+        "jpeg": "jpeg",
+        "jpg": "jpeg",
+        "resize": "resize_down_up",
+        "resize_down_up": "resize_down_up",
+        "down_up_resize": "resize_down_up",
+        "blur": "gaussian_blur",
+        "gaussian_blur": "gaussian_blur",
+        "noise": "gaussian_noise",
+        "gaussian_noise": "gaussian_noise",
+        "brightness_contrast": "brightness_contrast",
+        "color": "brightness_contrast",
+    }
+    return aliases.get(name, name)
+
+
+def is_clean_corruption(name: Optional[str]) -> bool:
+    return _normalize_corruption_name(name) == "clean"
+
+
+def build_condition_name(corruption_name: str, severity: int) -> str:
+    normalized = _normalize_corruption_name(corruption_name)
+    if normalized == "clean":
+        return "clean"
+    return f"{normalized}_s{int(severity)}"
 
 
 def get_frequency_cfg_dict(cfg: Any) -> Dict[str, Any]:
@@ -295,6 +352,7 @@ def categorize_case(true_label: int, pred_label: int) -> str:
 def short_label_name(label: int) -> str:
     return "real" if label == 0 else "fake"
 
+
 def is_fusion_model(model: torch.nn.Module) -> bool:
     return hasattr(model, "spatial_branch") and hasattr(model, "spectral_branch")
 
@@ -365,16 +423,62 @@ def get_split_csv_path(cfg, split: str) -> str:
     raise ValueError(f"Unsupported split: {split}")
 
 
-def build_dataset(cfg, split: str):
-    """
-    시각화는 랜덤 augment 없이 deterministic transform 사용.
-    train split을 보더라도 eval-style transform을 사용한다.
-    """
-    transform = build_image_transform(
-        data_cfg=cfg.data,
-        split="test",
-        aug_cfg=None,
+def resolve_robustness_cfg(args: argparse.Namespace) -> Optional[Any]:
+    corruption_name = _normalize_corruption_name(args.corruption)
+    if corruption_name == "clean":
+        return None
+
+    robustness_path = resolve_path(args.robustness_config)
+    if not robustness_path.exists():
+        raise FileNotFoundError(
+            f"Robustness config not found: {robustness_path}"
+        )
+    return load_yaml(robustness_path)
+
+
+def resolve_corruption_params(
+    corruption_name: str,
+    severity: int,
+    robustness_cfg: Optional[Any],
+) -> Dict[str, Any]:
+    normalized = _normalize_corruption_name(corruption_name)
+    if normalized == "clean":
+        return {"name": "clean"}
+
+    if robustness_cfg is None:
+        raise ValueError("robustness_cfg is required when corruption != clean")
+
+    return get_corruption_params(
+        robustness_cfg=robustness_cfg,
+        corruption_name=normalized,
+        severity=int(severity),
     )
+
+
+def build_dataset(
+    cfg,
+    split: str,
+    corruption_name: str = "clean",
+    severity: int = 1,
+    robustness_cfg: Optional[Any] = None,
+):
+    """
+    explain 시각화용 dataset 생성.
+
+    - clean: deterministic eval transform
+    - corrupted: corruption 적용 후 eval transform
+    """
+    normalized_corruption = _normalize_corruption_name(corruption_name)
+
+    if normalized_corruption == "clean":
+        transform = build_clean_eval_transform(cfg.data)
+    else:
+        transform = build_corrupted_eval_transform(
+            data_cfg=cfg.data,
+            corruption_name=normalized_corruption,
+            severity=int(severity),
+            robustness_cfg=robustness_cfg,
+        )
 
     csv_path = get_split_csv_path(cfg, split)
     csv_path_resolved = resolve_path(csv_path)
@@ -466,11 +570,25 @@ def main() -> None:
         model_config_path=args.model_config,
         train_config_path=args.train_config,
     )
+    robustness_cfg = resolve_robustness_cfg(args)
+    normalized_corruption = _normalize_corruption_name(args.corruption)
+    condition_name = build_condition_name(normalized_corruption, args.severity)
+    corruption_params = resolve_corruption_params(
+        corruption_name=normalized_corruption,
+        severity=args.severity,
+        robustness_cfg=robustness_cfg,
+    )
 
     print("=" * 80)
     print("Merged Config")
     print("=" * 80)
     print(pretty_print_config(cfg))
+
+    if robustness_cfg is not None:
+        print("=" * 80)
+        print("Robustness Config")
+        print("=" * 80)
+        print(pretty_print_config(robustness_cfg))
 
     seed = int(cfg.train.experiment.seed)
     seed_everything(seed)
@@ -485,7 +603,13 @@ def main() -> None:
     if not checkpoint_path.exists():
         raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
 
-    dataset_cls, dataset = build_dataset(cfg, args.split)
+    dataset_cls, dataset = build_dataset(
+        cfg=cfg,
+        split=args.split,
+        corruption_name=normalized_corruption,
+        severity=args.severity,
+        robustness_cfg=robustness_cfg,
+    )
     if len(dataset) == 0:
         raise RuntimeError(f"No samples found in split: {args.split}")
 
@@ -496,6 +620,9 @@ def main() -> None:
     print(f"dataset class: {dataset_cls.__name__}")
     print(f"split: {args.split}")
     print(f"size: {len(dataset)}")
+    print(f"corruption: {normalized_corruption}")
+    print(f"condition: {condition_name}")
+    print(f"corruption params: {corruption_params}")
     if hasattr(dataset, "class_counts"):
         print(f"class counts: {dataset.class_counts}")
 
@@ -516,7 +643,12 @@ def main() -> None:
     std = list(cfg.data.image.std)
     dataset_name = getattr(cfg.data, "name", "unknown")
     save_root = ensure_dir(
-        resolve_path(args.save_dir) / method / dataset_name / args.split / checkpoint_path.stem
+        resolve_path(args.save_dir)
+        / method
+        / dataset_name
+        / args.split
+        / checkpoint_path.stem
+        / condition_name
     )
 
     target_groups = ["correct_real", "correct_fake", "wrong_real", "wrong_fake"]
@@ -560,6 +692,10 @@ def main() -> None:
                     mask_info = {
                         **frequency_cfg,
                         "image_size": list(image_tensor.shape[-2:]),
+                        "corruption": normalized_corruption,
+                        "severity": 0 if normalized_corruption == "clean" else int(args.severity),
+                        "condition": condition_name,
+                        "corruption_params": corruption_params,
                     }
                     run_artifacts = save_frequency_run_artifacts(
                         save_dir=save_root,
@@ -595,6 +731,10 @@ def main() -> None:
                     group=group,
                     frequency_cfg=frequency_cfg,
                 )
+                metrics["corruption"] = normalized_corruption
+                metrics["severity"] = 0 if normalized_corruption == "clean" else int(args.severity)
+                metrics["condition"] = condition_name
+                metrics["corruption_params"] = corruption_params
 
                 sample_name = (
                     f"{idx:05d}"
@@ -622,6 +762,10 @@ def main() -> None:
                     "target_type": args.target_type,
                     "target_class": target_class,
                     "source_filepath": filepath,
+                    "corruption": normalized_corruption,
+                    "severity": 0 if normalized_corruption == "clean" else int(args.severity),
+                    "condition": condition_name,
+                    "corruption_params": corruption_params,
                     "saved_dir": sample_dir.as_posix(),
                     "saved_files": saved_files,
                     "metrics": metrics,
@@ -630,7 +774,8 @@ def main() -> None:
                 saved_counts[group] += 1
 
                 print(
-                    f"[Saved] method={method} | group={group} | idx={idx} | "
+                    f"[Saved] method={method} | condition={condition_name} | "
+                    f"group={group} | idx={idx} | "
                     f"true={true_label} pred={pred_label} prob={pred_prob:.4f} | "
                     f"{sample_dir}"
                 )
@@ -668,6 +813,7 @@ def main() -> None:
                     f"prob={pred_prob:.4f}"
                 ),
                 f"target_type={args.target_type} | target_class={target_class}",
+                f"condition={condition_name}",
                 f"path={Path(filepath).name}",
             ]
 
@@ -697,13 +843,18 @@ def main() -> None:
                 "target_type": args.target_type,
                 "target_class": target_class,
                 "source_filepath": filepath,
+                "corruption": normalized_corruption,
+                "severity": 0 if normalized_corruption == "clean" else int(args.severity),
+                "condition": condition_name,
+                "corruption_params": corruption_params,
                 "saved_path": save_path.as_posix(),
             }
             records.append(record)
             saved_counts[group] += 1
 
             print(
-                f"[Saved] method={method} | group={group} | idx={idx} | "
+                f"[Saved] method={method} | condition={condition_name} | "
+                f"group={group} | idx={idx} | "
                 f"true={true_label} pred={pred_label} prob={pred_prob:.4f} | "
                 f"{save_path}"
             )
@@ -719,6 +870,15 @@ def main() -> None:
         "split": args.split,
         "method": method,
         "target_type": args.target_type,
+        "corruption": normalized_corruption,
+        "severity": 0 if normalized_corruption == "clean" else int(args.severity),
+        "condition": condition_name,
+        "corruption_params": corruption_params,
+        "robustness_config": (
+            resolve_path(args.robustness_config).as_posix()
+            if robustness_cfg is not None
+            else None
+        ),
         "target_layer": (
             args.target_layer
             if method == "gradcam" and args.target_layer is not None
@@ -755,6 +915,7 @@ def main() -> None:
     print(f"method: {method}")
     print(f"dataset: {dataset_name}")
     print(f"checkpoint: {checkpoint_path}")
+    print(f"condition: {condition_name}")
     print(f"save_dir: {save_root}")
     print(f"saved: {dict(saved_counts)}")
 

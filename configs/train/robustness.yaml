@@ -1,0 +1,30 @@
+enabled: true
+
+benchmark:
+  primary_metric: auc
+  severities: [1, 2, 3, 4, 5]
+  save_per_sample: false
+  save_predictions: false
+
+corruptions:
+  jpeg:
+    enabled: true
+    qualities: [95, 75, 50, 30, 15]
+
+  resize_down_up:
+    enabled: true
+    scales: [0.90, 0.75, 0.50, 0.35, 0.25]
+    interpolation: bilinear
+
+  gaussian_blur:
+    enabled: true
+    sigmas: [0.5, 1.0, 1.5, 2.0, 3.0]
+
+  gaussian_noise:
+    enabled: true
+    stds: [0.008, 0.016, 0.032, 0.048, 0.080]
+
+  brightness_contrast:
+    enabled: false
+    brightness: [0.95, 0.85, 0.75, 0.65, 0.55]
+    contrast: [0.95, 0.85, 0.75, 0.65, 0.55]
