@@ -229,6 +229,10 @@ python scripts/visualize.py --config configs/train/fusion_resnet18_spai.yaml
 | 130k Face | ViT       | Spatial             | -        | -         | -      | -  | -       |
 | 130k Face | SPAI      | Frequency           | -        | -         | -      | -  | -       |
 | 130k Face | Fusion    | Spatial + Frequency | -        | -         | -      | -  | -       |
+| GenImage  | ResNet-18 | Spatial             | -        | -         | -      | -  | -       |
+| GenImage  | ViT       | Spatial             | -        | -         | -      | -  | -       |
+| GenImage  | SPAI      | Frequency           | -        | -         | -      | -  | -       |
+| GenImage  | Fusion    | Spatial + Frequency | -        | -         | -      | -  | -       |
 
 ---
 
