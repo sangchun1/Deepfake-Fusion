@@ -1,0 +1,45 @@
+name: spai
+family: spectral
+source: timm
+
+backbone:
+  name: vit_small_patch16_224
+  pretrained: true
+  in_channels: 3
+  freeze: false
+  img_size: 224
+  global_pool: token
+  drop_path_rate: 0.1
+
+frequency:
+  mask_mode: radial
+  radius_ratio: 0.25
+  fft_norm: ortho
+  high_from_residual: true
+  clamp_output: false
+  eps: 1.0e-8
+
+aggregation:
+  # 직접 block index를 지정하지 않으면 비워두고,
+  # num_selected_blocks로 마지막 N개 block 평균 사용
+  selected_blocks: null
+  num_selected_blocks: 4
+
+  # token sequence -> branch context
+  token_pool: attention   # attention | avg | cls
+
+  # backbone output -> branch global
+  feature_pool: cls       # cls | avg
+
+explain:
+  rollout_branch: original
+
+head:
+  num_classes: 2
+  dropout: 0.1
+  hidden_dim: null
+  hidden_dim2: null
+
+checkpoint:
+  path: null
+  strict: true

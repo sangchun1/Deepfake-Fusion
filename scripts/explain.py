@@ -5,7 +5,7 @@ import json
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Mapping, Type
 
 import torch
 
@@ -25,6 +25,12 @@ from src.deepfake_fusion.utils.config import (
 )
 from src.deepfake_fusion.utils.seed import seed_everything
 from src.deepfake_fusion.visualization.attention_rollout import AttentionRollout
+from src.deepfake_fusion.visualization.frequency_visualize import (
+    build_frequency_metrics,
+    build_frequency_visuals,
+    save_frequency_run_artifacts,
+    save_frequency_sample_artifacts,
+)
 from src.deepfake_fusion.visualization.gradcam import (
     GradCAM,
     apply_colormap_to_cam,
@@ -42,6 +48,7 @@ DATASET_REGISTRY: Dict[str, Type] = {
     "FACE130KDataset": FACE130KDataset,
     "genimage": GenImageDataset,
     "GenImageDataset": GenImageDataset,
+    # OpenFake를 GenImageDataset 로더로 처리
     "openfake": GenImageDataset,
     "OpenFakeDataset": GenImageDataset,
 }
@@ -49,7 +56,6 @@ DATASET_REGISTRY: Dict[str, Type] = {
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Explanation visualization script.")
-
     parser.add_argument(
         "--data_config",
         type=str,
@@ -87,8 +93,8 @@ def parse_args() -> argparse.Namespace:
         "--method",
         type=str,
         default="auto",
-        choices=["auto", "gradcam", "rollout"],
-        help="Explanation method. 'auto' uses rollout for ViT, gradcam otherwise.",
+        choices=["auto", "gradcam", "rollout", "frequency"],
+        help="Explanation method. 'auto' uses frequency for SPAI, rollout for ViT, gradcam otherwise.",
     )
     parser.add_argument(
         "--target_layer",
@@ -139,7 +145,63 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default="outputs/explain",
     )
+    parser.add_argument(
+        "--save_individual_frequency_images",
+        action="store_true",
+        help="frequency method에서 panel 외 개별 이미지도 함께 저장",
+    )
     return parser.parse_args()
+
+
+def _cfg_get(cfg: Any, *keys: str, default: Any = None) -> Any:
+    current = cfg
+    for key in keys:
+        if current is None:
+            return default
+        if isinstance(current, Mapping):
+            current = current.get(key, None)
+        else:
+            current = getattr(current, key, None)
+        if current is None:
+            return default
+    return current
+
+
+def _to_plain_python(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(k): _to_plain_python(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_to_plain_python(v) for v in value]
+    if isinstance(value, Path):
+        return value.as_posix()
+    if isinstance(value, torch.Tensor):
+        value = value.detach().cpu()
+        if value.numel() == 1:
+            return value.item()
+        return value.tolist()
+    if hasattr(value, "item") and callable(getattr(value, "item", None)):
+        try:
+            return value.item()
+        except Exception:
+            return value
+    return value
+
+
+def get_frequency_cfg_dict(cfg: Any) -> Dict[str, Any]:
+    freq_cfg = _cfg_get(cfg, "model", "frequency", default=None)
+    if freq_cfg is None:
+        return {}
+
+    return {
+        "mask_mode": _to_plain_python(_cfg_get(freq_cfg, "mask_mode", default="radial")),
+        "radius_ratio": _to_plain_python(_cfg_get(freq_cfg, "radius_ratio", default=0.25)),
+        "fft_norm": _to_plain_python(_cfg_get(freq_cfg, "fft_norm", default="ortho")),
+        "high_from_residual": _to_plain_python(
+            _cfg_get(freq_cfg, "high_from_residual", default=True)
+        ),
+        "clamp_output": _to_plain_python(_cfg_get(freq_cfg, "clamp_output", default=False)),
+        "eps": _to_plain_python(_cfg_get(freq_cfg, "eps", default=1e-8)),
+    }
 
 
 def resolve_device(device_name: str | None) -> torch.device:
@@ -188,6 +250,7 @@ def load_checkpoint_to_model(
 def get_prob_and_pred(logits: torch.Tensor) -> tuple[float, int]:
     """
     binary / multiclass logits 지원.
+
     반환:
         prob: predicted class confidence 또는 positive probability
         pred: predicted class index
@@ -293,9 +356,10 @@ def infer_explain_method(cfg, requested_method: str) -> str:
     backbone = getattr(cfg.model, "backbone", None)
     backbone_name = str(getattr(backbone, "name", "")).lower()
 
+    if model_name == "spai":
+        return "frequency"
     if model_name == "vit" or backbone_name.startswith("vit"):
         return "rollout"
-
     return "gradcam"
 
 
@@ -324,6 +388,15 @@ def build_explainer(
             f"start_layer={args.start_layer})"
         )
         return explainer, None
+
+    if method == "frequency":
+        if not hasattr(model, "frequency_encoder") or not hasattr(model, "extract_features"):
+            raise ValueError(
+                "Frequency explanation requires a SPAI-like model with "
+                "'frequency_encoder' and 'extract_features(return_dict=True)'."
+            )
+        print("Using frequency-only explanation for SPAI.")
+        return None, None
 
     raise ValueError(f"Unsupported explanation method: {method}")
 
@@ -384,19 +457,18 @@ def main() -> None:
 
     mean = list(cfg.data.image.mean)
     std = list(cfg.data.image.std)
-
     dataset_name = getattr(cfg.data, "name", "unknown")
     save_root = ensure_dir(
-        resolve_path(args.save_dir)
-        / method
-        / dataset_name
-        / args.split
-        / checkpoint_path.stem
+        resolve_path(args.save_dir) / method / dataset_name / args.split / checkpoint_path.stem
     )
 
     target_groups = ["correct_real", "correct_fake", "wrong_real", "wrong_fake"]
     saved_counts = defaultdict(int)
     records: List[Dict[str, Any]] = []
+
+    run_artifacts: Dict[str, Any] = {}
+    frequency_cfg = get_frequency_cfg_dict(cfg)
+    frequency_run_saved = False
 
     try:
         for idx in range(len(dataset)):
@@ -406,32 +478,120 @@ def main() -> None:
             sample = dataset[idx]
             image_tensor = sample["image"]
             label_tensor = sample["label"]
-            filepath = sample["filepath"]
+            filepath = sample.get("filepath", "")
 
             x = image_tensor.unsqueeze(0).to(device)
             true_label = int(label_tensor.item())
+
+            if method == "frequency":
+                with torch.no_grad():
+                    logits = model(x)
+                    pred_prob, pred_label = get_prob_and_pred(logits)
+                    group = categorize_case(true_label, pred_label)
+
+                    if saved_counts[group] >= args.max_per_group:
+                        continue
+
+                    explain_out = model.extract_features(x, return_dict=True)
+                    split_dict = model.frequency_encoder.split_spectrum(x)
+
+                target_class = pred_label if args.target_type == "pred" else true_label
+
+                if not frequency_run_saved:
+                    mask_info = {
+                        **frequency_cfg,
+                        "image_size": list(image_tensor.shape[-2:]),
+                    }
+                    run_artifacts = save_frequency_run_artifacts(
+                        save_dir=save_root,
+                        low_mask=split_dict["low_mask"],
+                        high_mask=split_dict["high_mask"],
+                        mask_info=mask_info,
+                    )
+                    frequency_run_saved = True
+
+                x_low = explain_out["x_low"][0].detach().cpu()
+                x_high = explain_out["x_high"][0].detach().cpu()
+
+                visuals = build_frequency_visuals(
+                    input_tensor=image_tensor,
+                    x_low=x_low,
+                    x_high=x_high,
+                    mean=mean,
+                    std=std,
+                    fft_norm=str(frequency_cfg.get("fft_norm", "ortho")),
+                    high_channel_reduce="mean",
+                )
+
+                metrics = build_frequency_metrics(
+                    input_tensor=image_tensor,
+                    x_low=x_low,
+                    x_high=x_high,
+                    explain_dict=explain_out,
+                    true_label=true_label,
+                    pred_label=pred_label,
+                    pred_prob=pred_prob,
+                    source_filepath=filepath,
+                    sample_index=idx,
+                    group=group,
+                    frequency_cfg=frequency_cfg,
+                )
+
+                sample_name = (
+                    f"{idx:05d}"
+                    f"_true-{short_label_name(true_label)}"
+                    f"_pred-{short_label_name(pred_label)}"
+                    f"_prob-{pred_prob:.4f}"
+                )
+                sample_dir = ensure_dir(save_root / group / sample_name)
+
+                saved_files = save_frequency_sample_artifacts(
+                    save_dir=sample_dir,
+                    visuals=visuals,
+                    metrics=metrics,
+                    save_individual_images=bool(args.save_individual_frequency_images),
+                    save_panel=True,
+                )
+
+                record = {
+                    "index": idx,
+                    "group": group,
+                    "method": method,
+                    "true_label": true_label,
+                    "pred_label": pred_label,
+                    "pred_prob": pred_prob,
+                    "target_type": args.target_type,
+                    "target_class": target_class,
+                    "source_filepath": filepath,
+                    "saved_dir": sample_dir.as_posix(),
+                    "saved_files": saved_files,
+                    "metrics": metrics,
+                }
+                records.append(record)
+                saved_counts[group] += 1
+
+                print(
+                    f"[Saved] method={method} | group={group} | idx={idx} | "
+                    f"true={true_label} pred={pred_label} prob={pred_prob:.4f} | "
+                    f"{sample_dir}"
+                )
+                continue
 
             if method == "rollout":
                 result = explainer.generate(x, target_class=None)
                 logits = result["logits"]
                 pred_prob, pred_label = get_prob_and_pred(logits)
+                target_class = pred_label if args.target_type == "pred" else true_label
             else:
                 with torch.no_grad():
                     logits = model(x)
                 pred_prob, pred_label = get_prob_and_pred(logits)
+                target_class = pred_label if args.target_type == "pred" else true_label
+                result = explainer.generate(x, target_class=target_class)
 
             group = categorize_case(true_label, pred_label)
-            if group not in target_groups:
-                continue
             if saved_counts[group] >= args.max_per_group:
                 continue
-
-            target_class = pred_label if args.target_type == "pred" else true_label
-
-            if method == "gradcam":
-                result = explainer.generate(x, target_class=target_class)
-            else:
-                result["target_class"] = int(target_class)
 
             input_rgb = denormalize_image_tensor(image_tensor, mean=mean, std=std)
             cam = result["cam"]
@@ -451,6 +611,7 @@ def main() -> None:
                 f"target_type={args.target_type} | target_class={target_class}",
                 f"path={Path(filepath).name}",
             ]
+
             panel = make_gradcam_panel(
                 original_rgb=input_rgb,
                 heatmap_rgb=heatmap_rgb,
@@ -489,7 +650,7 @@ def main() -> None:
             )
 
     finally:
-        if explainer is not None:
+        if explainer is not None and hasattr(explainer, "remove_hooks"):
             explainer.remove_hooks()
 
     summary = {
@@ -500,7 +661,8 @@ def main() -> None:
         "method": method,
         "target_type": args.target_type,
         "target_layer": (
-            args.target_layer if method == "gradcam" and args.target_layer is not None
+            args.target_layer
+            if method == "gradcam" and args.target_layer is not None
             else (
                 str(resolved_target_layer)
                 if method == "gradcam" and resolved_target_layer is not None
@@ -514,20 +676,28 @@ def main() -> None:
         }
         if method == "rollout"
         else None,
+        "frequency": {
+            "config": frequency_cfg,
+            "run_artifacts": run_artifacts,
+            "save_individual_frequency_images": bool(args.save_individual_frequency_images),
+        }
+        if method == "frequency"
+        else None,
         "resolved_save_dir": save_root.as_posix(),
         "saved_counts": dict(saved_counts),
         "records": records,
     }
+
     save_json(summary, save_root / "summary.json")
 
     print("=" * 80)
     print("Explanation Finished")
     print("=" * 80)
-    print(f"method:     {method}")
-    print(f"dataset:    {dataset_name}")
+    print(f"method: {method}")
+    print(f"dataset: {dataset_name}")
     print(f"checkpoint: {checkpoint_path}")
-    print(f"save_dir:   {save_root}")
-    print(f"saved:      {dict(saved_counts)}")
+    print(f"save_dir: {save_root}")
+    print(f"saved: {dict(saved_counts)}")
 
 
 if __name__ == "__main__":

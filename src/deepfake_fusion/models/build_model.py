@@ -5,6 +5,7 @@ from typing import Any, Mapping
 import torch.nn as nn
 
 from src.deepfake_fusion.models.cnn.resnet18 import build_resnet18
+from src.deepfake_fusion.models.spectral.spai import build_spai
 from src.deepfake_fusion.models.transformer.vit import build_vit
 
 
@@ -54,6 +55,7 @@ def build_model(model_cfg: Any) -> nn.Module:
     현재 지원:
     - resnet18
     - vit
+    - spai
 
     예:
         model = build_model(cfg.model)
@@ -64,10 +66,12 @@ def build_model(model_cfg: Any) -> nn.Module:
         return build_resnet18(model_cfg)
     if model_name == "vit":
         return build_vit(model_cfg)
+    if model_name == "spai":
+        return build_spai(model_cfg)
 
     raise ValueError(
         f"Unsupported model: {model_name}. "
-        "Currently supported models: ['resnet18', 'vit']"
+        "Currently supported models: ['resnet18', 'vit', 'spai']"
     )
 
 

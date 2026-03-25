@@ -239,6 +239,15 @@ def _get_sweep_value(sweep_cfg, key: str, default=None):
     return default
 
 
+def _ensure_cfg_section(parent, section_name: str):
+    """
+    cfg.<section_name> 이 없으면 빈 dict-like section 생성.
+    """
+    if not hasattr(parent, section_name) or getattr(parent, section_name) is None:
+        setattr(parent, section_name, {})
+    return getattr(parent, section_name)
+
+
 def apply_sweep_overrides(cfg, sweep_cfg) -> Any:
     """
     wandb.config 값으로 base config override.
@@ -246,6 +255,9 @@ def apply_sweep_overrides(cfg, sweep_cfg) -> Any:
     """
     if not hasattr(cfg.train, "augmentation"):
         cfg.train.augmentation = {}
+
+    if not hasattr(cfg.model, "head"):
+        cfg.model.head = {}
 
     # optimizer / dataloader / head
     lr = _get_sweep_value(sweep_cfg, "lr")
@@ -312,6 +324,49 @@ def apply_sweep_overrides(cfg, sweep_cfg) -> Any:
         and hasattr(cfg.train.scheduler, "min_lr")
     ):
         cfg.train.scheduler.min_lr = float(min_lr)
+
+    # ------------------------------------------------------------------
+    # SPAI / frequency-specific overrides
+    # ------------------------------------------------------------------
+    model_name = str(getattr(cfg.model, "name", "")).lower()
+    if model_name == "spai":
+        frequency_cfg = _ensure_cfg_section(cfg.model, "frequency")
+        aggregation_cfg = _ensure_cfg_section(cfg.model, "aggregation")
+
+        radius_ratio = _get_sweep_value(sweep_cfg, "radius_ratio")
+        if radius_ratio is not None:
+            frequency_cfg.radius_ratio = float(radius_ratio)
+
+        high_from_residual = _get_sweep_value(sweep_cfg, "high_from_residual")
+        if high_from_residual is not None:
+            frequency_cfg.high_from_residual = bool(high_from_residual)
+
+        mask_mode = _get_sweep_value(sweep_cfg, "mask_mode")
+        if mask_mode is not None:
+            frequency_cfg.mask_mode = str(mask_mode)
+
+        num_selected_blocks = _get_sweep_value(sweep_cfg, "num_selected_blocks")
+        if num_selected_blocks is not None:
+            aggregation_cfg.num_selected_blocks = int(num_selected_blocks)
+            # num_selected_blocks sweep를 쓰면 selected_blocks 직접 지정은 해제
+            if hasattr(aggregation_cfg, "selected_blocks"):
+                aggregation_cfg.selected_blocks = None
+
+        token_pool = _get_sweep_value(sweep_cfg, "token_pool")
+        if token_pool is not None:
+            aggregation_cfg.token_pool = str(token_pool)
+
+        feature_pool = _get_sweep_value(sweep_cfg, "feature_pool")
+        if feature_pool is not None:
+            aggregation_cfg.feature_pool = str(feature_pool)
+
+        mlp_hidden_dim = _get_sweep_value(sweep_cfg, "mlp_hidden_dim")
+        if mlp_hidden_dim is not None and hasattr(cfg.model, "head"):
+            cfg.model.head.hidden_dim = int(mlp_hidden_dim)
+
+        mlp_hidden_dim2 = _get_sweep_value(sweep_cfg, "mlp_hidden_dim2")
+        if mlp_hidden_dim2 is not None and hasattr(cfg.model, "head"):
+            cfg.model.head.hidden_dim2 = int(mlp_hidden_dim2)
 
     return cfg
 
