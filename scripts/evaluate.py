@@ -2,28 +2,28 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
+# import sys
 from pathlib import Path
 from typing import Any, Dict, Type
 
 from torch.utils.data import DataLoader
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+# PROJECT_ROOT = Path(__file__).resolve().parents[1]
+# if str(PROJECT_ROOT) not in sys.path:
+#     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.deepfake_fusion.datasets.cifake_dataset import CIFAKEDataset
-from src.deepfake_fusion.datasets.face130k_dataset import FACE130KDataset
-from src.deepfake_fusion.datasets.genimage_dataset import GenImageDataset
-from src.deepfake_fusion.engine.trainer import Trainer
-from src.deepfake_fusion.models.build_model import build_model, get_model_summary
-from src.deepfake_fusion.transforms.image_aug import build_transforms_from_config
-from src.deepfake_fusion.utils.config import (
+from deepfake_fusion.datasets.cifake_dataset import CIFAKEDataset
+from deepfake_fusion.datasets.face130k_dataset import FACE130KDataset
+from deepfake_fusion.datasets.genimage_dataset import GenImageDataset
+from deepfake_fusion.engine.trainer import Trainer
+from deepfake_fusion.models.build_model import build_model, get_model_summary
+from deepfake_fusion.transforms.image_aug import build_transforms_from_config
+from deepfake_fusion.utils.config import (
     load_experiment_config,
     pretty_print_config,
     resolve_path,
 )
-from src.deepfake_fusion.utils.seed import (
+from deepfake_fusion.utils.seed import (
     get_torch_generator,
     seed_everything,
     seed_worker,

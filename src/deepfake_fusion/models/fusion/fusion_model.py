@@ -5,10 +5,10 @@ from typing import Any, Mapping, Optional
 import torch
 import torch.nn as nn
 
-from src.deepfake_fusion.models.cnn.resnet18 import build_resnet18
-from src.deepfake_fusion.models.fusion.fusion_block import build_fusion_block
-from src.deepfake_fusion.models.spectral.spai import build_spai
-from src.deepfake_fusion.models.transformer.vit import build_vit
+from ..cnn.resnet18 import build_resnet18
+from ..fusion.fusion_block import build_fusion_block
+from ..spectral.spai import build_spai
+from ..transformer.vit import build_vit
 
 
 def _cfg_get(cfg: Any, *keys: str, default: Any = None) -> Any:

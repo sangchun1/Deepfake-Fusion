@@ -4,7 +4,7 @@ import argparse
 import csv
 import json
 import math
-import sys
+# import sys
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Type
 
@@ -12,34 +12,34 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+# PROJECT_ROOT = Path(__file__).resolve().parents[1]
+# if str(PROJECT_ROOT) not in sys.path:
+#     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.deepfake_fusion.datasets.cifake_dataset import CIFAKEDataset
-from src.deepfake_fusion.datasets.face130k_dataset import FACE130KDataset
-from src.deepfake_fusion.datasets.genimage_dataset import GenImageDataset
-from src.deepfake_fusion.engine.trainer import Trainer
-from src.deepfake_fusion.metrics.classification import (
+from deepfake_fusion.datasets.cifake_dataset import CIFAKEDataset
+from deepfake_fusion.datasets.face130k_dataset import FACE130KDataset
+from deepfake_fusion.datasets.genimage_dataset import GenImageDataset
+from deepfake_fusion.engine.trainer import Trainer
+from deepfake_fusion.metrics.classification import (
     ClassificationMeter,
     logits_to_probs,
     probs_to_preds,
 )
-from src.deepfake_fusion.models.build_model import build_model, get_model_summary
-from src.deepfake_fusion.transforms.robustness import (
+from deepfake_fusion.models.build_model import build_model, get_model_summary
+from deepfake_fusion.transforms.robustness import (
     build_clean_eval_transform,
     build_corrupted_eval_transform,
     get_benchmark_severities,
     get_corruption_params,
     get_enabled_corruptions,
 )
-from src.deepfake_fusion.utils.config import (
+from deepfake_fusion.utils.config import (
     load_experiment_config,
     load_yaml,
     pretty_print_config,
     resolve_path,
 )
-from src.deepfake_fusion.utils.seed import (
+from deepfake_fusion.utils.seed import (
     get_torch_generator,
     seed_everything,
     seed_worker,

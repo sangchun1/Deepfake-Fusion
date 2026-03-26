@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 import torch
 
-from src.deepfake_fusion.models.spectral.frequency_encoder import (
+from ..models.spectral.frequency_encoder import (
     fft2_image,
     log_magnitude_spectrum,
 )

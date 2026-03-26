@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from src.deepfake_fusion.models.spectral.frequency_encoder import (
+from .frequency_encoder import (
     build_frequency_encoder,
 )
 

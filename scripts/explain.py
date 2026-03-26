@@ -2,41 +2,41 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
+# import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Type
 
 import torch
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+# PROJECT_ROOT = Path(__file__).resolve().parents[1]
+# if str(PROJECT_ROOT) not in sys.path:
+#     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.deepfake_fusion.datasets.cifake_dataset import CIFAKEDataset
-from src.deepfake_fusion.datasets.face130k_dataset import FACE130KDataset
-from src.deepfake_fusion.datasets.genimage_dataset import GenImageDataset
-from src.deepfake_fusion.models.build_model import build_model
-from src.deepfake_fusion.transforms.robustness import (
+from deepfake_fusion.datasets.cifake_dataset import CIFAKEDataset
+from deepfake_fusion.datasets.face130k_dataset import FACE130KDataset
+from deepfake_fusion.datasets.genimage_dataset import GenImageDataset
+from deepfake_fusion.models.build_model import build_model
+from deepfake_fusion.transforms.robustness import (
     build_clean_eval_transform,
     build_corrupted_eval_transform,
     get_corruption_params,
 )
-from src.deepfake_fusion.utils.config import (
+from deepfake_fusion.utils.config import (
     load_experiment_config,
     load_yaml,
     pretty_print_config,
     resolve_path,
 )
-from src.deepfake_fusion.utils.seed import seed_everything
-from src.deepfake_fusion.visualization.attention_rollout import AttentionRollout
-from src.deepfake_fusion.visualization.frequency_visualize import (
+from deepfake_fusion.utils.seed import seed_everything
+from deepfake_fusion.visualization.attention_rollout import AttentionRollout
+from deepfake_fusion.visualization.frequency_visualize import (
     build_frequency_metrics,
     build_frequency_visuals,
     save_frequency_run_artifacts,
     save_frequency_sample_artifacts,
 )
-from src.deepfake_fusion.visualization.gradcam import (
+from deepfake_fusion.visualization.gradcam import (
     GradCAM,
     apply_colormap_to_cam,
     denormalize_image_tensor,

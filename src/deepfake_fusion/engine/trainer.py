@@ -15,7 +15,7 @@ from torch.optim.lr_scheduler import (
     StepLR,
 )
 
-from src.deepfake_fusion.metrics.classification import ClassificationMeter
+from ..metrics.classification import ClassificationMeter
 
 
 try:
