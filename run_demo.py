@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
+# import sys
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -10,11 +10,11 @@ import matplotlib.pyplot as plt
 import torch
 from PIL import Image
 
-PROJECT_ROOT = Path(__file__).resolve().parent
-SRC_ROOT = PROJECT_ROOT / "src"
-for p in (PROJECT_ROOT, SRC_ROOT):
-    if str(p) not in sys.path:
-        sys.path.insert(0, str(p))
+# PROJECT_ROOT = Path(__file__).resolve().parent
+# SRC_ROOT = PROJECT_ROOT / "src"
+# for p in (PROJECT_ROOT, SRC_ROOT):
+#     if str(p) not in sys.path:
+#         sys.path.insert(0, str(p))
 
 from deepfake_fusion.models.build_model import build_model
 from deepfake_fusion.transforms.image_aug import build_eval_transform
