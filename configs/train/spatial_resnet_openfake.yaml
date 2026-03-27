@@ -1,13 +1,13 @@
 experiment:
-  name: fusion_resnet_spai_genimage
-  task: fusion_classification
-  output_dir: outputs/fusion/resnet_spai_genimage
+  name: spatial_resnet18_openfake
+  task: spatial_classification
+  output_dir: outputs/spatial/resnet18_openfake
   seed: 42
   device: cuda
   use_amp: true
 
 train:
-  epochs: 15
+  epochs: 10
   grad_accum_steps: 1
   clip_grad_norm: null
 
@@ -23,7 +23,7 @@ augmentation:
 
 scheduler:
   name: cosine
-  t_max: 15
+  t_max: 10
   eta_min: 0.000001
 
 loss:
@@ -58,7 +58,7 @@ wandb:
   enabled: true
   project: Deepfake-Fusion
   entity: null
-  name: fusion_resnet_spai_genimage
-  tags: ["genimage", "fusion", "resnet18", "spai"]
+  name: spatial_resnet18_openfake
+  tags: ["openfake", "resnet18", "spatial"]
   mode: online
   log_model: false

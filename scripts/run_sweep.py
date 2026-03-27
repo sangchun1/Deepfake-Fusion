@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 
 from deepfake_fusion.datasets.cifake_dataset import CIFAKEDataset
 from deepfake_fusion.datasets.face130k_dataset import FACE130KDataset
-from deepfake_fusion.datasets.genimage_dataset import GenImageDataset
+from archive.genimage_dataset import GenImageDataset
 from deepfake_fusion.engine.trainer import Trainer
 from deepfake_fusion.models.build_model import build_model, get_model_summary
 from deepfake_fusion.transforms.image_aug import build_transforms_from_config

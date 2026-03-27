@@ -1,332 +1,399 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 from __future__ import annotations
 
 import argparse
-import io
-import shutil
+import csv
+import json
+import random
+from collections import Counter
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Dict, List
 
-import pandas as pd
+from datasets import load_dataset, load_dataset_builder
 from PIL import Image
+from tqdm import tqdm
 
-from datasets import load_dataset
 
+DEFAULT_MODELS = [
+    "sd-3.5",
+    "flux.1-dev",
+    "flux-1.1-pro",
+    "midjourney-6",
+    "dalle-3",
+    "gpt-image-1",
+    "ideogram-3.0",
+    "hidream-i1-full",
+    "grok-2-image-1212",
+    "imagen-4.0",
+    "sdxl-epic-realism",
+    "flux-mvc5000",
+]
 
-LABEL_TO_INT = {
-    "real": 0,
-    "fake": 1,
-    "0": 0,
-    "1": 1,
+EXT_MAP = {
+    "PNG": "png",
+    "JPEG": "jpg",
+    "JPG": "jpg",
+    "WEBP": "webp",
+    "BMP": "bmp",
+    "TIFF": "tiff",
 }
 
-LABEL_TO_NAME = {
-    0: "real",
-    1: "fake",
-}
 
+class ReservoirSampler:
+    def __init__(self, k: int, rng: random.Random):
+        self.k = int(k)
+        self.rng = rng
+        self.n_seen = 0
+        self.items: List[int] = []
 
-def get_project_root() -> Path:
-    return Path(__file__).resolve().parents[1]
+    def consider(self, item: int) -> None:
+        self.n_seen += 1
+        if len(self.items) < self.k:
+            self.items.append(item)
+            return
+
+        j = self.rng.randint(0, self.n_seen - 1)
+        if j < self.k:
+            self.items[j] = item
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description=(
-            "Build a local OpenFake test subset from Hugging Face and save "
-            "images + CSV for evaluate.py / explain.py."
-        )
+        description="Download a balanced OpenFake subset without split folders."
     )
     parser.add_argument(
-        "--dataset_name",
+        "--dataset-id",
         type=str,
         default="ComplexDataLab/OpenFake",
-        help="Hugging Face dataset name.",
+        help="Hugging Face dataset id.",
     )
     parser.add_argument(
-        "--split",
+        "--hf-split",
         type=str,
-        default="test",
-        help="Official split to sample from. OpenFake provides train/test.",
+        default="train",
+        help="Official HF split to sample from. Default: train",
     )
     parser.add_argument(
-        "--output_root",
+        "--output-root",
         type=str,
         default="data/raw/openfake",
-        help="Root directory where images will be saved.",
+        help="Root directory to save images and metadata.",
     )
     parser.add_argument(
-        "--output_csv",
-        type=str,
-        default="data/splits/openfake/default_test.csv",
-        help="CSV path to save metadata and relative filepaths.",
+        "--models",
+        nargs="*",
+        default=DEFAULT_MODELS,
+        help="Target fake models.",
     )
     parser.add_argument(
-        "--subset_name",
-        type=str,
-        default="default_test",
-        help="Subdirectory name created under output_root.",
-    )
-    parser.add_argument(
-        "--max_per_label",
+        "--num-per-model",
         type=int,
-        default=500,
-        help="Maximum number of samples to save for each label.",
+        default=8000,
+        help="Number of fake images to sample per model.",
     )
     parser.add_argument(
-        "--seed",
+        "--num-real",
         type=int,
-        default=42,
-        help="Random seed used for streaming shuffle.",
-    )
-    parser.add_argument(
-        "--shuffle_buffer_size",
-        type=int,
-        default=10_000,
-        help="Buffer size for streaming shuffle.",
-    )
-    parser.add_argument(
-        "--image_format",
-        type=str,
-        default="png",
-        choices=["png", "jpg"],
-        help="Image format used when saving local subset files.",
-    )
-    parser.add_argument(
-        "--jpeg_quality",
-        type=int,
-        default=95,
-        help="JPEG quality used when image_format=jpg.",
-    )
-    parser.add_argument(
-        "--allowed_models",
-        type=str,
         default=None,
-        help="Optional comma-separated model whitelist.",
+        help="Number of real images to sample. Default: same as total fake selected.",
     )
+    parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
-        "--allowed_types",
+        "--save-format",
         type=str,
-        default=None,
-        help="Optional comma-separated type whitelist (e.g. base,lora).",
+        default="auto",
+        choices=["auto", "png", "jpg", "jpeg"],
+        help="How to save output images. 'auto' uses source format when available, otherwise png.",
     )
     parser.add_argument(
-        "--overwrite",
+        "--metadata-only",
         action="store_true",
-        help="Overwrite existing subset directory and CSV if they already exist.",
+        help="Only build metadata csv/json, do not save image files.",
     )
     return parser.parse_args()
 
 
-def parse_optional_csv_list(value: Optional[str]) -> Optional[set[str]]:
-    if value is None:
+def make_output_dirs(output_root: Path, models: List[str]) -> None:
+    (output_root / "real").mkdir(parents=True, exist_ok=True)
+    for model in models:
+        (output_root / "fake" / sanitize_model_name(model)).mkdir(parents=True, exist_ok=True)
+    (output_root / "metadata").mkdir(parents=True, exist_ok=True)
+
+
+def get_total_rows(dataset_id: str, hf_split: str) -> int | None:
+    try:
+        builder = load_dataset_builder(dataset_id)
+        info = builder.info
+        if info.splits and hf_split in info.splits:
+            return getattr(info.splits[hf_split], "num_examples", None)
+    except Exception:
         return None
-    items = {item.strip().lower() for item in value.split(",") if item.strip()}
-    return items or None
+    return None
 
 
-def normalize_label(value: Any) -> int:
-    key = str(value).strip().lower()
-    if key not in LABEL_TO_INT:
-        raise ValueError(f"Unsupported label value: {value}")
-    return LABEL_TO_INT[key]
+def load_stream(dataset_id: str, hf_split: str):
+    return load_dataset(dataset_id, split=hf_split, streaming=True)
 
 
-def to_text(value: Any) -> str:
-    if value is None:
-        return ""
-    return str(value)
+def sanitize_model_name(name: str) -> str:
+    return name.replace("/", "-").replace(" ", "_")
 
 
-def ensure_pil_image(image_value: Any) -> Image.Image:
-    if isinstance(image_value, Image.Image):
-        return image_value
+def pass1_reservoir_sample(
+    dataset_id: str,
+    hf_split: str,
+    target_models: List[str],
+    num_per_model: int,
+    total_real_needed: int,
+    seed: int,
+) -> tuple[Dict[str, List[int]], List[int], Dict[str, int], int]:
+    rng = random.Random(seed)
+    fake_samplers = {
+        model: ReservoirSampler(num_per_model, random.Random(rng.randint(0, 10**9)))
+        for model in target_models
+    }
+    real_sampler = ReservoirSampler(total_real_needed, random.Random(rng.randint(0, 10**9)))
 
-    if isinstance(image_value, dict):
-        image_bytes = image_value.get("bytes")
-        image_path = image_value.get("path")
+    fake_available = Counter()
+    real_available = 0
 
-        if image_bytes is not None:
-            return Image.open(io.BytesIO(image_bytes))
-        if image_path:
-            return Image.open(image_path)
+    total_rows = get_total_rows(dataset_id, hf_split)
+    ds = load_stream(dataset_id, hf_split)
 
-    raise TypeError(f"Unsupported image value type: {type(image_value)}")
+    for idx, row in enumerate(tqdm(ds, total=total_rows, desc="Pass 1/2: reservoir sampling", unit="row")):
+        label = row.get("label")
+        model = row.get("model")
+
+        if label == "fake" and model in fake_samplers:
+            fake_available[model] += 1
+            fake_samplers[model].consider(idx)
+        elif label == "real":
+            real_available += 1
+            real_sampler.consider(idx)
+
+    missing = {m: num_per_model - fake_available[m] for m in target_models if fake_available[m] < num_per_model}
+    if missing:
+        lines = [f"{m}: need {num_per_model}, found {fake_available[m]}" for m in target_models if m in missing]
+        raise RuntimeError(
+            "Some models do not have enough fake images in the selected HF split:\n" + "\n".join(lines)
+        )
+
+    if real_available < total_real_needed:
+        raise RuntimeError(f"Not enough real images: need {total_real_needed}, found {real_available}")
+
+    sampled_fake_indices = {model: sorted(fake_samplers[model].items) for model in target_models}
+    sampled_real_indices = sorted(real_sampler.items)
+    return sampled_fake_indices, sampled_real_indices, dict(fake_available), real_available
 
 
-def save_image(image: Image.Image, path: Path, image_format: str, jpeg_quality: int) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    image = image.convert("RGB")
+def infer_extension(img: Image.Image, save_format: str) -> str:
+    if save_format != "auto":
+        return "jpg" if save_format == "jpeg" else save_format
 
-    if image_format == "jpg":
-        image.save(path, format="JPEG", quality=jpeg_quality)
+    fmt = getattr(img, "format", None)
+    if fmt is None:
+        return "png"
+    return EXT_MAP.get(fmt.upper(), "png")
+
+
+def save_image(img: Image.Image, out_path: Path, ext: str) -> None:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if ext in {"jpg", "jpeg"}:
+        if img.mode not in ("RGB", "L"):
+            img = img.convert("RGB")
+        img.save(out_path, format="JPEG", quality=95)
+    elif ext == "png":
+        img.save(out_path, format="PNG")
+    elif ext == "webp":
+        img.save(out_path, format="WEBP")
+    elif ext == "bmp":
+        img.save(out_path, format="BMP")
+    elif ext in {"tif", "tiff"}:
+        img.save(out_path, format="TIFF")
     else:
-        image.save(path, format="PNG")
+        img.save(out_path, format="PNG")
 
 
-def prepare_output_paths(
-    project_root: Path,
-    output_root: str,
-    output_csv: str,
-    subset_name: str,
-    overwrite: bool,
-) -> tuple[Path, Path, Path]:
-    output_root_path = (project_root / output_root).resolve()
-    output_csv_path = (project_root / output_csv).resolve()
-    subset_dir = output_root_path / subset_name
+def pass2_save_subset(
+    dataset_id: str,
+    hf_split: str,
+    sampled_fake_indices: Dict[str, List[int]],
+    sampled_real_indices: List[int],
+    output_root: Path,
+    save_format: str,
+    metadata_only: bool,
+) -> list[dict]:
+    total_rows = get_total_rows(dataset_id, hf_split)
+    ds = load_stream(dataset_id, hf_split)
 
-    if overwrite:
-        if subset_dir.exists():
-            shutil.rmtree(subset_dir)
-        if output_csv_path.exists():
-            output_csv_path.unlink()
-    else:
-        if subset_dir.exists():
-            raise FileExistsError(
-                f"Subset directory already exists: {subset_dir}\n"
-                "Use --overwrite to recreate it."
-            )
-        if output_csv_path.exists():
-            raise FileExistsError(
-                f"Output CSV already exists: {output_csv_path}\n"
-                "Use --overwrite to recreate it."
-            )
+    index_to_model = {}
+    for model, indices in sampled_fake_indices.items():
+        for idx in indices:
+            index_to_model[idx] = model
+    real_index_set = set(sampled_real_indices)
+    target_indices = set(index_to_model.keys()) | real_index_set
 
-    output_root_path.mkdir(parents=True, exist_ok=True)
-    output_csv_path.parent.mkdir(parents=True, exist_ok=True)
-    return output_root_path, output_csv_path, subset_dir
+    counters = Counter()
+    saved_rows = []
+
+    for idx, row in enumerate(tqdm(ds, total=total_rows, desc="Pass 2/2: save selected subset", unit="row")):
+        if idx not in target_indices:
+            continue
+
+        is_real = idx in real_index_set
+        label = "real" if is_real else "fake"
+        model = "real" if is_real else index_to_model[idx]
+        counters[(label, model)] += 1
+        local_idx = counters[(label, model)]
+
+        if is_real:
+            prefix = f"real__{local_idx:06d}"
+            out_dir = output_root / "real"
+        else:
+            safe_model = sanitize_model_name(model)
+            prefix = f"{safe_model}__{local_idx:05d}"
+            out_dir = output_root / "fake" / safe_model
+
+        image_relpath = None
+        if not metadata_only:
+            img = row["image"]
+            ext = infer_extension(img, save_format)
+            out_path = out_dir / f"{prefix}.{ext}"
+            save_image(img, out_path, ext)
+            image_relpath = str(out_path.relative_to(output_root)).replace("\\", "/")
+
+        saved_rows.append(
+            {
+                "source_hf_split": hf_split,
+                "source_row_index": idx,
+                "label": label,
+                "binary_label": 1 if label == "fake" else 0,
+                "model": model,
+                "type": row.get("type"),
+                "release_date": row.get("release_date"),
+                "prompt": row.get("prompt"),
+                "image_relpath": image_relpath,
+            }
+        )
+
+        if len(saved_rows) == len(target_indices):
+            break
+
+    if len(saved_rows) != len(target_indices):
+        raise RuntimeError(f"Saved {len(saved_rows)} rows, but expected {len(target_indices)} selected rows.")
+
+    return saved_rows
 
 
-def should_keep_example(
-    example: Dict[str, Any],
-    allowed_models: Optional[set[str]],
-    allowed_types: Optional[set[str]],
-) -> bool:
-    model_name = to_text(example.get("model")).strip().lower()
-    type_name = to_text(example.get("type")).strip().lower()
+def write_metadata(output_root: Path, rows: list[dict], summary: dict) -> None:
+    metadata_dir = output_root / "metadata"
+    metadata_dir.mkdir(parents=True, exist_ok=True)
 
-    if allowed_models is not None and model_name not in allowed_models:
-        return False
-    if allowed_types is not None and type_name not in allowed_types:
-        return False
-    return True
+    fieldnames = [
+        "source_hf_split",
+        "source_row_index",
+        "label",
+        "binary_label",
+        "model",
+        "type",
+        "release_date",
+        "prompt",
+        "image_relpath",
+    ]
+
+    with open(metadata_dir / "subset.csv", "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    with open(metadata_dir / "summary.json", "w", encoding="utf-8") as f:
+        json.dump(summary, f, ensure_ascii=False, indent=2)
+
+
+def build_summary(
+    args: argparse.Namespace,
+    fake_available: Dict[str, int],
+    real_available: int,
+    saved_rows: list[dict],
+    total_real_needed: int,
+) -> dict:
+    label_counter = Counter(r["label"] for r in saved_rows)
+    fake_model_counter = Counter(r["model"] for r in saved_rows if r["label"] == "fake")
+
+    return {
+        "dataset_id": args.dataset_id,
+        "source_hf_split": args.hf_split,
+        "output_root": str(Path(args.output_root)),
+        "selected_models": args.models,
+        "num_models": len(args.models),
+        "num_per_model_fake": args.num_per_model,
+        "num_real": total_real_needed,
+        "total_fake_selected": args.num_per_model * len(args.models),
+        "total_real_selected": total_real_needed,
+        "fake_available_in_source_split": fake_available,
+        "real_available_in_source_split": real_available,
+        "saved_counts_by_label": dict(label_counter),
+        "saved_fake_counts_by_model": dict(fake_model_counter),
+        "metadata_only": args.metadata_only,
+        "save_format": args.save_format,
+        "seed": args.seed,
+        "directory_layout": {
+            "real": "real/",
+            "fake": "fake/<generator>/",
+        },
+    }
 
 
 def main() -> None:
     args = parse_args()
+    output_root = Path(args.output_root)
+    total_real_needed = args.num_real if args.num_real is not None else args.num_per_model * len(args.models)
 
-    if args.max_per_label <= 0:
-        raise ValueError("max_per_label must be a positive integer.")
+    make_output_dirs(output_root, args.models)
 
-    project_root = get_project_root()
-    output_root_path, output_csv_path, subset_dir = prepare_output_paths(
-        project_root=project_root,
-        output_root=args.output_root,
-        output_csv=args.output_csv,
-        subset_name=args.subset_name,
-        overwrite=args.overwrite,
+    sampled_fake_indices, sampled_real_indices, fake_available, real_available = pass1_reservoir_sample(
+        dataset_id=args.dataset_id,
+        hf_split=args.hf_split,
+        target_models=args.models,
+        num_per_model=args.num_per_model,
+        total_real_needed=total_real_needed,
+        seed=args.seed,
     )
 
-    allowed_models = parse_optional_csv_list(args.allowed_models)
-    allowed_types = parse_optional_csv_list(args.allowed_types)
-
-    print("=" * 80)
-    print("Build OpenFake Subset")
-    print("=" * 80)
-    print(f"dataset_name: {args.dataset_name}")
-    print(f"split: {args.split}")
-    print(f"output_root: {output_root_path.as_posix()}")
-    print(f"subset_dir: {subset_dir.as_posix()}")
-    print(f"output_csv: {output_csv_path.as_posix()}")
-    print(f"max_per_label: {args.max_per_label}")
-    print(f"image_format: {args.image_format}")
-    if allowed_models is not None:
-        print(f"allowed_models: {sorted(allowed_models)}")
-    if allowed_types is not None:
-        print(f"allowed_types: {sorted(allowed_types)}")
-
-    dataset = load_dataset(
-        args.dataset_name,
-        split=args.split,
-        streaming=True,
+    saved_rows = pass2_save_subset(
+        dataset_id=args.dataset_id,
+        hf_split=args.hf_split,
+        sampled_fake_indices=sampled_fake_indices,
+        sampled_real_indices=sampled_real_indices,
+        output_root=output_root,
+        save_format=args.save_format,
+        metadata_only=args.metadata_only,
     )
-    dataset = dataset.shuffle(seed=args.seed, buffer_size=args.shuffle_buffer_size)
 
-    counts = {0: 0, 1: 0}
-    rows: list[dict[str, Any]] = []
-    target_count = {0: args.max_per_label, 1: args.max_per_label}
-    suffix = ".jpg" if args.image_format == "jpg" else ".png"
-
-    for stream_index, example in enumerate(dataset):
-        if counts[0] >= target_count[0] and counts[1] >= target_count[1]:
-            break
-
-        if not should_keep_example(
-            example=example,
-            allowed_models=allowed_models,
-            allowed_types=allowed_types,
-        ):
-            continue
-
-        label = normalize_label(example.get("label"))
-        if counts[label] >= target_count[label]:
-            continue
-
-        label_name = LABEL_TO_NAME[label]
-        image = ensure_pil_image(example.get("image"))
-
-        next_index = counts[label] + 1
-        filename = f"{label_name}_{next_index:06d}{suffix}"
-        relative_path = Path(args.subset_name) / label_name / filename
-        absolute_path = output_root_path / relative_path
-
-        save_image(
-            image=image,
-            path=absolute_path,
-            image_format=args.image_format,
-            jpeg_quality=args.jpeg_quality,
-        )
-
-        counts[label] += 1
-        rows.append(
-            {
-                "filepath": relative_path.as_posix(),
-                "label": label,
-                "label_name": label_name,
-                "model": to_text(example.get("model")),
-                "prompt": to_text(example.get("prompt")),
-                "type": to_text(example.get("type")),
-                "release_date": to_text(example.get("release_date")),
-                "official_split": args.split,
-                "stream_index": stream_index,
-            }
-        )
-
-        total_saved = counts[0] + counts[1]
-        if total_saved % 100 == 0:
-            print(
-                f"saved={total_saved} "
-                f"real={counts[0]}/{target_count[0]} "
-                f"fake={counts[1]}/{target_count[1]}"
-            )
-
-    if counts[0] < target_count[0] or counts[1] < target_count[1]:
-        raise RuntimeError(
-            "Could not collect enough samples for the requested subset size. "
-            f"Saved counts: {counts}. "
-            "Try lowering --max_per_label or loosening filters."
-        )
-
-    df = pd.DataFrame(rows)
-    df = df.sort_values(by=["label", "stream_index", "filepath"]).reset_index(drop=True)
-    df.to_csv(output_csv_path, index=False, encoding="utf-8")
+    summary = build_summary(
+        args=args,
+        fake_available=fake_available,
+        real_available=real_available,
+        saved_rows=saved_rows,
+        total_real_needed=total_real_needed,
+    )
+    write_metadata(output_root, saved_rows, summary)
 
     print("=" * 80)
-    print("Subset Build Finished")
+    print("OpenFake raw subset download finished")
     print("=" * 80)
-    print(f"total_saved: {len(df)}")
-    print(f"label_counts: {counts}")
-    print(f"saved_csv: {output_csv_path.as_posix()}")
-    print(f"saved_images_under: {subset_dir.as_posix()}")
+    print(f"output_root      : {output_root}")
+    print(f"selected_models  : {len(args.models)}")
+    print(f"fake per model   : {args.num_per_model}")
+    print(f"total fake       : {args.num_per_model * len(args.models)}")
+    print(f"total real       : {total_real_needed}")
+    print(f"metadata_only    : {args.metadata_only}")
+    print(f"summary json     : {output_root / 'metadata' / 'summary.json'}")
+    print(f"subset csv       : {output_root / 'metadata' / 'subset.csv'}")
+    print("saved structure  : real/ and fake/<generator>/")
 
 
 if __name__ == "__main__":

@@ -215,3 +215,4 @@ outputs/*/*/*.pth
 outputs/*/*/sweeps/
 
 command.md
+archive/

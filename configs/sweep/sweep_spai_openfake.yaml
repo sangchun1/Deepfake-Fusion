@@ -7,11 +7,11 @@ command:
   - python
   - ${program}
   - --data_config
-  - configs/data/genimage.yaml
+  - configs/data/openfake.yaml
   - --model_config
   - configs/model/spai.yaml
   - --train_config
-  - configs/train/frequency_spai_genimage.yaml
+  - configs/train/frequency_spai_openfake.yaml
 
 parameters:
   lr:

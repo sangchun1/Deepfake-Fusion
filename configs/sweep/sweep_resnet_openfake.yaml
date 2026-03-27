@@ -39,8 +39,8 @@ command:
   - python
   - ${program}
   - --data_config
-  - configs/data/genimage.yaml
+  - configs/data/openfake.yaml
   - --model_config
   - configs/model/resnet18.yaml
   - --train_config
-  - configs/train/spatial_resnet_genimage.yaml
+  - configs/train/spatial_resnet_openfake.yaml

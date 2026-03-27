@@ -15,7 +15,7 @@ import torch
 
 from deepfake_fusion.datasets.cifake_dataset import CIFAKEDataset
 from deepfake_fusion.datasets.face130k_dataset import FACE130KDataset
-from deepfake_fusion.datasets.genimage_dataset import GenImageDataset
+from archive.genimage_dataset import GenImageDataset
 from deepfake_fusion.models.build_model import build_model
 from deepfake_fusion.transforms.robustness import (
     build_clean_eval_transform,

@@ -1,13 +1,13 @@
 experiment:
-  name: frequency_spai_genimage
-  task: frequency_classification
-  output_dir: outputs/frequency/spai_genimage
+  name: fusion_resnet_spai_openfake
+  task: fusion_classification
+  output_dir: outputs/fusion/resnet_spai_openfake
   seed: 42
   device: cuda
   use_amp: true
 
 train:
-  epochs: 10
+  epochs: 15
   grad_accum_steps: 1
   clip_grad_norm: null
 
@@ -23,7 +23,7 @@ augmentation:
 
 scheduler:
   name: cosine
-  t_max: 10
+  t_max: 15
   eta_min: 0.000001
 
 loss:
@@ -58,7 +58,7 @@ wandb:
   enabled: true
   project: Deepfake-Fusion
   entity: null
-  name: frequency_spai_genimage
-  tags: ["genimage", "spai", "frequency"]
+  name: fusion_resnet_spai_openfake
+  tags: ["openfake", "fusion", "resnet18", "spai"]
   mode: online
   log_model: false

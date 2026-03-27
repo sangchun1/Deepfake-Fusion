@@ -1,7 +1,7 @@
 experiment:
-  name: fusion_vit_spai_genimage
+  name: fusion_vit_spai_openfake
   task: fusion_classification
-  output_dir: outputs/fusion/vit_spai_genimage
+  output_dir: outputs/fusion/vit_spai_openfake
   seed: 42
   device: cuda
   use_amp: true
@@ -58,7 +58,7 @@ wandb:
   enabled: true
   project: Deepfake-Fusion
   entity: null
-  name: fusion_vit_spai_genimage
-  tags: ["genimage", "fusion", "vit", "spai"]
+  name: fusion_vit_spai_openfake
+  tags: ["openfake", "fusion", "vit", "spai"]
   mode: online
   log_model: false
