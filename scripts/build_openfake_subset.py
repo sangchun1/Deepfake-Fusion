@@ -1,18 +1,17 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 from __future__ import annotations
 
 import argparse
 import csv
 import json
 import random
+import shutil
 from collections import Counter
+from io import BytesIO
 from pathlib import Path
 from typing import Dict, List
 
-from datasets import load_dataset, load_dataset_builder
-from PIL import Image
+from datasets import Image as HFImage, load_dataset, load_dataset_builder
+from PIL import Image as PILImage, UnidentifiedImageError
 from tqdm import tqdm
 
 
@@ -105,12 +104,17 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default="auto",
         choices=["auto", "png", "jpg", "jpeg"],
-        help="How to save output images. 'auto' uses source format when available, otherwise png.",
+        help="How to save output images. 'auto' keeps source bytes/path when possible.",
     )
     parser.add_argument(
         "--metadata-only",
         action="store_true",
         help="Only build metadata csv/json, do not save image files.",
+    )
+    parser.add_argument(
+        "--skip-bad-images",
+        action="store_true",
+        help="Skip rows whose image bytes/path are unreadable.",
     )
     return parser.parse_args()
 
@@ -133,12 +137,40 @@ def get_total_rows(dataset_id: str, hf_split: str) -> int | None:
     return None
 
 
-def load_stream(dataset_id: str, hf_split: str):
-    return load_dataset(dataset_id, split=hf_split, streaming=True)
+def load_stream(dataset_id: str, hf_split: str, metadata_only_stream: bool = False):
+    if metadata_only_stream:
+        return load_dataset(
+            dataset_id,
+            split=hf_split,
+            streaming=True,
+            columns=["label", "model"],
+        )
+
+    builder = load_dataset_builder(dataset_id)
+    features = builder.info.features.copy()
+    features["image"] = HFImage(decode=False)
+
+    return load_dataset(
+        dataset_id,
+        split=hf_split,
+        streaming=True,
+        features=features,
+        columns=["image", "label", "model", "type", "release_date", "prompt"],
+    )
 
 
 def sanitize_model_name(name: str) -> str:
     return name.replace("/", "-").replace(" ", "_")
+
+
+def normalize_label(label) -> str:
+    if isinstance(label, str):
+        return label.lower()
+    if isinstance(label, bool):
+        return "fake" if label else "real"
+    if isinstance(label, int):
+        return "fake" if label == 1 else "real"
+    return str(label).lower()
 
 
 def pass1_reservoir_sample(
@@ -160,10 +192,10 @@ def pass1_reservoir_sample(
     real_available = 0
 
     total_rows = get_total_rows(dataset_id, hf_split)
-    ds = load_stream(dataset_id, hf_split)
+    ds = load_stream(dataset_id, hf_split, metadata_only_stream=True)
 
     for idx, row in enumerate(tqdm(ds, total=total_rows, desc="Pass 1/2: reservoir sampling", unit="row")):
-        label = row.get("label")
+        label = normalize_label(row.get("label"))
         model = row.get("model")
 
         if label == "fake" and model in fake_samplers:
@@ -188,33 +220,95 @@ def pass1_reservoir_sample(
     return sampled_fake_indices, sampled_real_indices, dict(fake_available), real_available
 
 
-def infer_extension(img: Image.Image, save_format: str) -> str:
+def _image_cell_to_bytes_and_path(image_cell) -> tuple[bytes | None, str | None]:
+    if image_cell is None:
+        return None, None
+
+    if isinstance(image_cell, dict):
+        return image_cell.get("bytes"), image_cell.get("path")
+
+    if isinstance(image_cell, PILImage.Image):
+        buffer = BytesIO()
+        fmt = image_cell.format or "PNG"
+        image_cell.save(buffer, format=fmt)
+        return buffer.getvalue(), None
+
+    return None, None
+
+
+def _guess_ext_from_path(path_str: str | None) -> str | None:
+    if not path_str:
+        return None
+    suffix = Path(path_str).suffix.lower().lstrip(".")
+    if suffix in {"jpg", "jpeg", "png", "webp", "bmp", "tif", "tiff"}:
+        return "jpg" if suffix == "jpeg" else suffix
+    return None
+
+
+def infer_extension_from_cell(image_cell, save_format: str) -> str:
     if save_format != "auto":
         return "jpg" if save_format == "jpeg" else save_format
 
-    fmt = getattr(img, "format", None)
-    if fmt is None:
-        return "png"
-    return EXT_MAP.get(fmt.upper(), "png")
+    image_bytes, image_path = _image_cell_to_bytes_and_path(image_cell)
+
+    ext_from_path = _guess_ext_from_path(image_path)
+    if ext_from_path:
+        return ext_from_path
+
+    if image_bytes:
+        try:
+            with PILImage.open(BytesIO(image_bytes)) as img:
+                fmt = getattr(img, "format", None)
+            if fmt is not None:
+                return EXT_MAP.get(fmt.upper(), "png")
+        except Exception:
+            pass
+
+    return "png"
 
 
-def save_image(img: Image.Image, out_path: Path, ext: str) -> None:
+def save_image_from_cell(image_cell, out_path: Path) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    image_bytes, image_path = _image_cell_to_bytes_and_path(image_cell)
 
-    if ext in {"jpg", "jpeg"}:
-        if img.mode not in ("RGB", "L"):
-            img = img.convert("RGB")
-        img.save(out_path, format="JPEG", quality=95)
-    elif ext == "png":
-        img.save(out_path, format="PNG")
-    elif ext == "webp":
-        img.save(out_path, format="WEBP")
-    elif ext == "bmp":
-        img.save(out_path, format="BMP")
-    elif ext in {"tif", "tiff"}:
-        img.save(out_path, format="TIFF")
+    if image_bytes is not None:
+        with open(out_path, "wb") as f:
+            f.write(image_bytes)
+        return
+
+    if image_path:
+        shutil.copyfile(image_path, out_path)
+        return
+
+    raise ValueError("Unsupported image cell: no bytes/path found.")
+
+
+def convert_and_save_image_from_cell(image_cell, out_path: Path, ext: str) -> None:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    image_bytes, image_path = _image_cell_to_bytes_and_path(image_cell)
+
+    if image_bytes is not None:
+        img = PILImage.open(BytesIO(image_bytes))
+    elif image_path:
+        img = PILImage.open(image_path)
     else:
-        img.save(out_path, format="PNG")
+        raise ValueError("Unsupported image cell: no bytes/path found.")
+
+    with img:
+        if ext in {"jpg", "jpeg"}:
+            if img.mode not in ("RGB", "L"):
+                img = img.convert("RGB")
+            img.save(out_path, format="JPEG", quality=95)
+        elif ext == "png":
+            img.save(out_path, format="PNG")
+        elif ext == "webp":
+            img.save(out_path, format="WEBP")
+        elif ext == "bmp":
+            img.save(out_path, format="BMP")
+        elif ext in {"tif", "tiff"}:
+            img.save(out_path, format="TIFF")
+        else:
+            img.save(out_path, format="PNG")
 
 
 def pass2_save_subset(
@@ -225,7 +319,8 @@ def pass2_save_subset(
     output_root: Path,
     save_format: str,
     metadata_only: bool,
-) -> list[dict]:
+    skip_bad_images: bool,
+) -> tuple[list[dict], int]:
     total_rows = get_total_rows(dataset_id, hf_split)
     ds = load_stream(dataset_id, hf_split)
 
@@ -238,6 +333,7 @@ def pass2_save_subset(
 
     counters = Counter()
     saved_rows = []
+    skipped_bad = 0
 
     for idx, row in enumerate(tqdm(ds, total=total_rows, desc="Pass 2/2: save selected subset", unit="row")):
         if idx not in target_indices:
@@ -259,10 +355,22 @@ def pass2_save_subset(
 
         image_relpath = None
         if not metadata_only:
-            img = row["image"]
-            ext = infer_extension(img, save_format)
+            image_cell = row.get("image")
+            ext = infer_extension_from_cell(image_cell, save_format)
             out_path = out_dir / f"{prefix}.{ext}"
-            save_image(img, out_path, ext)
+
+            try:
+                if save_format == "auto":
+                    save_image_from_cell(image_cell, out_path)
+                else:
+                    convert_and_save_image_from_cell(image_cell, out_path, ext)
+            except (UnidentifiedImageError, OSError, ValueError) as e:
+                if not skip_bad_images:
+                    raise
+                counters[(label, model)] -= 1
+                skipped_bad += 1
+                continue
+
             image_relpath = str(out_path.relative_to(output_root)).replace("\\", "/")
 
         saved_rows.append(
@@ -282,10 +390,10 @@ def pass2_save_subset(
         if len(saved_rows) == len(target_indices):
             break
 
-    if len(saved_rows) != len(target_indices):
+    if not skip_bad_images and len(saved_rows) != len(target_indices):
         raise RuntimeError(f"Saved {len(saved_rows)} rows, but expected {len(target_indices)} selected rows.")
 
-    return saved_rows
+    return saved_rows, skipped_bad
 
 
 def write_metadata(output_root: Path, rows: list[dict], summary: dict) -> None:
@@ -319,6 +427,7 @@ def build_summary(
     real_available: int,
     saved_rows: list[dict],
     total_real_needed: int,
+    skipped_bad_images: int,
 ) -> dict:
     label_counter = Counter(r["label"] for r in saved_rows)
     fake_model_counter = Counter(r["model"] for r in saved_rows if r["label"] == "fake")
@@ -330,9 +439,9 @@ def build_summary(
         "selected_models": args.models,
         "num_models": len(args.models),
         "num_per_model_fake": args.num_per_model,
-        "num_real": total_real_needed,
-        "total_fake_selected": args.num_per_model * len(args.models),
-        "total_real_selected": total_real_needed,
+        "num_real_requested": total_real_needed,
+        "total_fake_selected_requested": args.num_per_model * len(args.models),
+        "total_real_selected_requested": total_real_needed,
         "fake_available_in_source_split": fake_available,
         "real_available_in_source_split": real_available,
         "saved_counts_by_label": dict(label_counter),
@@ -340,6 +449,8 @@ def build_summary(
         "metadata_only": args.metadata_only,
         "save_format": args.save_format,
         "seed": args.seed,
+        "skip_bad_images": args.skip_bad_images,
+        "skipped_bad_images": skipped_bad_images,
         "directory_layout": {
             "real": "real/",
             "fake": "fake/<generator>/",
@@ -363,7 +474,7 @@ def main() -> None:
         seed=args.seed,
     )
 
-    saved_rows = pass2_save_subset(
+    saved_rows, skipped_bad_images = pass2_save_subset(
         dataset_id=args.dataset_id,
         hf_split=args.hf_split,
         sampled_fake_indices=sampled_fake_indices,
@@ -371,6 +482,7 @@ def main() -> None:
         output_root=output_root,
         save_format=args.save_format,
         metadata_only=args.metadata_only,
+        skip_bad_images=args.skip_bad_images,
     )
 
     summary = build_summary(
@@ -379,21 +491,24 @@ def main() -> None:
         real_available=real_available,
         saved_rows=saved_rows,
         total_real_needed=total_real_needed,
+        skipped_bad_images=skipped_bad_images,
     )
     write_metadata(output_root, saved_rows, summary)
 
     print("=" * 80)
     print("OpenFake raw subset download finished")
     print("=" * 80)
-    print(f"output_root      : {output_root}")
-    print(f"selected_models  : {len(args.models)}")
-    print(f"fake per model   : {args.num_per_model}")
-    print(f"total fake       : {args.num_per_model * len(args.models)}")
-    print(f"total real       : {total_real_needed}")
-    print(f"metadata_only    : {args.metadata_only}")
-    print(f"summary json     : {output_root / 'metadata' / 'summary.json'}")
-    print(f"subset csv       : {output_root / 'metadata' / 'subset.csv'}")
-    print("saved structure  : real/ and fake/<generator>/")
+    print(f"output_root       : {output_root}")
+    print(f"selected_models   : {len(args.models)}")
+    print(f"fake per model    : {args.num_per_model}")
+    print(f"total fake req    : {args.num_per_model * len(args.models)}")
+    print(f"total real req    : {total_real_needed}")
+    print(f"saved rows        : {len(saved_rows)}")
+    print(f"skipped_bad_images: {skipped_bad_images}")
+    print(f"metadata_only     : {args.metadata_only}")
+    print(f"summary json      : {output_root / 'metadata' / 'summary.json'}")
+    print(f"subset csv        : {output_root / 'metadata' / 'subset.csv'}")
+    print("saved structure   : real/ and fake/<generator>/")
 
 
 if __name__ == "__main__":
