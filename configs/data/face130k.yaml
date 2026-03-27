@@ -8,9 +8,21 @@ task: binary_classification
 
 paths:
   root_dir: data/raw/face130k
-  train_csv: data/splits/face130k/train.csv
-  val_csv: data/splits/face130k/val.csv
-  test_csv: data/splits/face130k/test.csv
+
+  # merged
+  train_csv: data/splits/face130k/merged/train.csv
+  val_csv: data/splits/face130k/merged/val.csv
+  test_csv: data/splits/face130k/merged/test.csv
+
+  # # by_generator(flux_dev, flux_pro, sdxl)
+  # train_csv: data/splits/face130k/by_generator/flux_dev/train.csv
+  # val_csv: data/splits/face130k/by_generator/flux_dev/val.csv
+  # test_csv: data/splits/face130k/by_generator/flux_dev/test.csv
+
+  # # logo(holdout_flux_dev, holdout_flux_pro, holdout_sdxl)
+  # train_csv: data/splits/face130k/logo/holdout_flux_dev/train.csv
+  # val_csv: data/splits/face130k/logo/holdout_flux_dev/val.csv
+  # test_csv: data/splits/face130k/logo/holdout_flux_dev/test.csv
 
 image:
   input_size: 224

@@ -31,7 +31,7 @@ def ensure_dir(path: Path) -> Path:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Run batch GenImage experiments for by_generator and/or "
+            "Run batch experiments for merged / by_generator / "
             "leave-one-generator-out (logo) splits, including optional evaluation "
             "and Grad-CAM explanation."
         )
@@ -41,14 +41,14 @@ def parse_args() -> argparse.Namespace:
         "--mode",
         type=str,
         default="by_generator",
-        choices=["by_generator", "logo", "all"],
+        choices=["merged", "by_generator", "logo", "all"],
         help="Which experiment family to run.",
     )
     parser.add_argument(
         "--base_data_config",
         type=str,
         default="configs/data/genimage.yaml",
-        help="Base GenImage data config YAML.",
+        help="Base data config YAML.",
     )
     parser.add_argument(
         "--model_config",
@@ -92,7 +92,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help=(
             "Optional override for cfg.data.paths.root_dir. "
-            "Useful when raw GenImage is stored on an external drive."
+            "Useful when raw data is stored on an external drive."
         ),
     )
     parser.add_argument(
@@ -101,7 +101,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help=(
             "Optional subset of experiment folder names to run. "
-            "Example: midjourney sd14 holdout_midjourney"
+            "Examples: merged flux_dev sdxl holdout_flux_dev"
         ),
     )
     parser.add_argument(
@@ -127,7 +127,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--device",
         type=str,
-        default=None,
+        default="cuda",
         help="Optional device override passed to train.py / evaluate.py / explain.py.",
     )
     parser.add_argument(
@@ -253,9 +253,20 @@ def discover_experiment_dirs(
     if not mode_dir.exists():
         raise FileNotFoundError(f"Split directory not found: {mode_dir}")
 
+    selected = set(selected_names) if selected_names else None
+
+    if mode == "merged":
+        exp_name = mode_dir.name  # "merged"
+        if selected is not None and exp_name not in selected:
+            raise RuntimeError(
+                f"No experiment directories found under: {mode_dir} "
+                f"(selected_names={sorted(selected)})"
+            )
+        return [mode_dir]
+
     exp_dirs = sorted([p for p in mode_dir.iterdir() if p.is_dir()])
-    if selected_names:
-        selected = set(selected_names)
+
+    if selected is not None:
         exp_dirs = [p for p in exp_dirs if p.name in selected]
 
     if not exp_dirs:
@@ -269,6 +280,8 @@ def build_generated_data_config(
     exp_dir: Path,
     generated_config_path: Path,
     root_dir_override: str | None,
+    mode: str,
+    exp_name: str,
 ) -> None:
     cfg = copy.deepcopy(base_cfg)
 
@@ -282,8 +295,8 @@ def build_generated_data_config(
     cfg["paths"]["val_csv"] = exp_dir.joinpath("val.csv").as_posix()
     cfg["paths"]["test_csv"] = exp_dir.joinpath("test.csv").as_posix()
 
-    base_name = str(cfg.get("name", "genimage"))
-    cfg["name"] = f"{base_name}_{exp_dir.parent.name}_{exp_dir.name}"
+    base_name = str(cfg.get("name", "dataset"))
+    cfg["name"] = f"{base_name}_{mode}_{exp_name}"
 
     save_yaml(cfg, generated_config_path)
 
@@ -397,7 +410,7 @@ def run_command(cmd: Sequence[str], cwd: Path) -> None:
 
 def resolve_modes(mode: str) -> List[str]:
     if mode == "all":
-        return ["by_generator", "logo"]
+        return ["merged", "by_generator", "logo"]
     return [mode]
 
 
@@ -450,18 +463,15 @@ def main() -> None:
 
         for exp_dir in exp_dirs:
             exp_name = exp_dir.name
-            generated_data_config_path = (
-                generated_config_dir / mode / f"{exp_name}.yaml"
-            )
+            generated_data_config_path = generated_config_dir / mode / f"{exp_name}.yaml"
             output_dir = output_root / mode / exp_name
             checkpoint_path = output_dir / args.checkpoint_name
             eval_json_path = output_dir / f"eval_{args.eval_split}.json"
 
-            # explain.py는 save_dir 아래에 dataset_name/split/checkpoint_stem 을 추가로 생성한다.
             explain_base_dir = explain_root / mode / exp_name
             explain_summary_path = (
                 explain_base_dir
-                / f"{base_data_cfg.get('name', 'genimage')}_{mode}_{exp_name}"
+                / f"{base_data_cfg.get('name', 'dataset')}_{mode}_{exp_name}"
                 / args.explain_split
                 / Path(args.checkpoint_name).stem
                 / "summary.json"
@@ -493,6 +503,8 @@ def main() -> None:
                     exp_dir=exp_dir,
                     generated_config_path=generated_data_config_path,
                     root_dir_override=args.root_dir,
+                    mode=mode,
+                    exp_name=exp_name,
                 )
 
                 if not args.eval_only and not args.explain_only:
@@ -569,9 +581,17 @@ def main() -> None:
 
             except Exception as e:
                 result["error"] = str(e)
-                if result["train_status"] == "not_run" and not args.eval_only and not args.explain_only:
+                if (
+                    result["train_status"] == "not_run"
+                    and not args.eval_only
+                    and not args.explain_only
+                ):
                     result["train_status"] = "failed"
-                if result["eval_status"] == "not_run" and not args.train_only and not args.explain_only:
+                if (
+                    result["eval_status"] == "not_run"
+                    and not args.train_only
+                    and not args.explain_only
+                ):
                     result["eval_status"] = "failed"
                 if result["explain_status"] == "not_run" and args.run_explain:
                     result["explain_status"] = "failed"
