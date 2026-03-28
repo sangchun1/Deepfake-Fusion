@@ -1,0 +1,107 @@
+name: semitruths_eval
+dataset_class: SemiTruthsDataset
+num_classes: 2
+task: binary_classification
+
+paths:
+  # Hugging Face Evalset root
+  root_dir: data/raw/semitruths_eval
+
+  # Official metadata file for evaluation
+  metadata_csv: data/raw/semitruths_eval/metadata.csv
+
+  # Official folder structure from the HF card
+  original_dir: data/raw/semitruths_eval/original
+  original_images_dir: data/raw/semitruths_eval/original/images
+  original_masks_dir: data/raw/semitruths_eval/original/masks
+  inpainting_dir: data/raw/semitruths_eval/inpainting
+  p2p_dir: data/raw/semitruths_eval/p2p
+  p2p_masks_dir: data/raw/semitruths_eval/p2p_masks
+
+  # Optional cached split CSV.
+  # You can keep this unused at first and read directly from metadata_csv.
+  test_csv: data/splits/semitruths/eval.csv
+
+metadata:
+  # Core columns explicitly described in the dataset card.
+  image_id_col: image_id
+  image_path_col: image_path
+
+  # The remaining names below are intended defaults for our implementation.
+  # If your local metadata.csv uses different headers, only these values need editing.
+  label_col: label
+  dataset_col: dataset
+  entity_col: entity
+  method_col: method
+  diffusion_model_col: diffusion_model
+  area_ratio_col: area_ratio
+  semantic_mag_col: semantic_mag
+  scene_complexity_col: scene_complexity
+  scene_diversity_col: scene_diversity
+  change_type_col: change_type
+  mask_path_col: mask_path
+
+  # Path handling
+  image_path_is_relative: true
+  mask_path_is_relative: true
+  normalize_backslashes: true
+
+  # Label normalization used by SemiTruthsDataset.
+  real_label_values: [0, real, Real]
+  fake_label_values: [1, fake, Fake]
+
+  # Which subsets to load from metadata.
+  include_real: true
+  include_inpainting: true
+  include_p2p: true
+
+image:
+  input_size: 224
+  channels: 3
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+labels:
+  real: 0
+  fake: 1
+
+dataloader:
+  batch_size: 64
+  num_workers: 4
+  pin_memory: true
+  drop_last: false
+
+train:
+  shuffle: false
+
+val:
+  shuffle: false
+
+test:
+  shuffle: false
+
+grouping:
+  enabled: true
+  # Base grouping axes recommended by the Semi-Truths paper/card.
+  columns:
+    - dataset
+    - method
+    - diffusion_model
+    - area_ratio
+    - semantic_mag
+    - scene_complexity
+    - scene_diversity
+    - change_type
+
+  # Optional categorical bins for grouped robustness analysis.
+  # Use these only if the raw metadata is continuous and you decide to bin it in code.
+  area_ratio_bins: [0.0, 0.05, 0.2, 1.0]
+  area_ratio_bin_labels: [small, medium, large]
+
+  semantic_mag_bins: [0.0, 0.33, 0.66, 1.0]
+  semantic_mag_bin_labels: [small, medium, large]
+
+experiment:
+  split: test
+  save_metadata_copy: true
+  save_predictions: true
