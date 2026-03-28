@@ -1,0 +1,243 @@
+{
+  "dataset_name": "face130k_logo_holdout_sdxl",
+  "dataset_class": "FACE130KDataset",
+  "checkpoint": "C:/Deepfake-Fusion/outputs/spatial/resnet18_face130k/logo/holdout_sdxl/best.pth",
+  "split": "test",
+  "method": "gradcam",
+  "target_type": "pred",
+  "corruption": "clean",
+  "severity": 0,
+  "condition": "clean",
+  "corruption_params": {
+    "name": "clean"
+  },
+  "robustness_config": null,
+  "target_layer": "BasicBlock(\n  (conv1): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)\n  (bn1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)\n  (relu): ReLU(inplace=True)\n  (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)\n  (bn2): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)\n)",
+  "rollout": null,
+  "frequency": null,
+  "resolved_save_dir": "C:/Deepfake-Fusion/outputs/explain/gradcam/face130k/logo/holdout_sdxl/gradcam/face130k_logo_holdout_sdxl/test/best/clean",
+  "saved_counts": {
+    "correct_real": 4,
+    "correct_fake": 4,
+    "wrong_fake": 4,
+    "wrong_real": 0
+  },
+  "records": [
+    {
+      "index": 0,
+      "group": "correct_fake",
+      "method": "gradcam",
+      "true_label": 1,
+      "pred_label": 1,
+      "pred_prob": 1.0,
+      "target_type": "pred",
+      "target_class": 1,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/face130k/fake/sdxl/SDXL_image_0052082.jpg",
+      "corruption": "clean",
+      "severity": 0,
+      "condition": "clean",
+      "corruption_params": {
+        "name": "clean"
+      },
+      "saved_path": "C:/Deepfake-Fusion/outputs/explain/gradcam/face130k/logo/holdout_sdxl/gradcam/face130k_logo_holdout_sdxl/test/best/clean/correct_fake/00000_true-fake_pred-fake_prob-1.0000.png"
+    },
+    {
+      "index": 1,
+      "group": "correct_fake",
+      "method": "gradcam",
+      "true_label": 1,
+      "pred_label": 1,
+      "pred_prob": 0.9999656677246094,
+      "target_type": "pred",
+      "target_class": 1,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/face130k/fake/sdxl/SDXL_image_0013164.jpg",
+      "corruption": "clean",
+      "severity": 0,
+      "condition": "clean",
+      "corruption_params": {
+        "name": "clean"
+      },
+      "saved_path": "C:/Deepfake-Fusion/outputs/explain/gradcam/face130k/logo/holdout_sdxl/gradcam/face130k_logo_holdout_sdxl/test/best/clean/correct_fake/00001_true-fake_pred-fake_prob-1.0000.png"
+    },
+    {
+      "index": 2,
+      "group": "correct_fake",
+      "method": "gradcam",
+      "true_label": 1,
+      "pred_label": 1,
+      "pred_prob": 0.9999403953552246,
+      "target_type": "pred",
+      "target_class": 1,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/face130k/fake/sdxl/SDXL_image_0038415.jpg",
+      "corruption": "clean",
+      "severity": 0,
+      "condition": "clean",
+      "corruption_params": {
+        "name": "clean"
+      },
+      "saved_path": "C:/Deepfake-Fusion/outputs/explain/gradcam/face130k/logo/holdout_sdxl/gradcam/face130k_logo_holdout_sdxl/test/best/clean/correct_fake/00002_true-fake_pred-fake_prob-0.9999.png"
+    },
+    {
+      "index": 3,
+      "group": "correct_fake",
+      "method": "gradcam",
+      "true_label": 1,
+      "pred_label": 1,
+      "pred_prob": 0.9999992847442627,
+      "target_type": "pred",
+      "target_class": 1,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/face130k/fake/sdxl/SDXL_image_0033988.jpg",
+      "corruption": "clean",
+      "severity": 0,
+      "condition": "clean",
+      "corruption_params": {
+        "name": "clean"
+      },
+      "saved_path": "C:/Deepfake-Fusion/outputs/explain/gradcam/face130k/logo/holdout_sdxl/gradcam/face130k_logo_holdout_sdxl/test/best/clean/correct_fake/00003_true-fake_pred-fake_prob-1.0000.png"
+    },
+    {
+      "index": 6,
+      "group": "correct_real",
+      "method": "gradcam",
+      "true_label": 0,
+      "pred_label": 0,
+      "pred_prob": 0.9994756579399109,
+      "target_type": "pred",
+      "target_class": 0,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/face130k/real/51868.jpg",
+      "corruption": "clean",
+      "severity": 0,
+      "condition": "clean",
+      "corruption_params": {
+        "name": "clean"
+      },
+      "saved_path": "C:/Deepfake-Fusion/outputs/explain/gradcam/face130k/logo/holdout_sdxl/gradcam/face130k_logo_holdout_sdxl/test/best/clean/correct_real/00006_true-real_pred-real_prob-0.9995.png"
+    },
+    {
+      "index": 9,
+      "group": "correct_real",
+      "method": "gradcam",
+      "true_label": 0,
+      "pred_label": 0,
+      "pred_prob": 0.9999334812164307,
+      "target_type": "pred",
+      "target_class": 0,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/face130k/real/52516.jpg",
+      "corruption": "clean",
+      "severity": 0,
+      "condition": "clean",
+      "corruption_params": {
+        "name": "clean"
+      },
+      "saved_path": "C:/Deepfake-Fusion/outputs/explain/gradcam/face130k/logo/holdout_sdxl/gradcam/face130k_logo_holdout_sdxl/test/best/clean/correct_real/00009_true-real_pred-real_prob-0.9999.png"
+    },
+    {
+      "index": 10,
+      "group": "wrong_fake",
+      "method": "gradcam",
+      "true_label": 1,
+      "pred_label": 0,
+      "pred_prob": 0.8435611128807068,
+      "target_type": "pred",
+      "target_class": 0,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/face130k/fake/sdxl/SDXL_image_0023636.jpg",
+      "corruption": "clean",
+      "severity": 0,
+      "condition": "clean",
+      "corruption_params": {
+        "name": "clean"
+      },
+      "saved_path": "C:/Deepfake-Fusion/outputs/explain/gradcam/face130k/logo/holdout_sdxl/gradcam/face130k_logo_holdout_sdxl/test/best/clean/wrong_fake/00010_true-fake_pred-real_prob-0.8436.png"
+    },
+    {
+      "index": 21,
+      "group": "correct_real",
+      "method": "gradcam",
+      "true_label": 0,
+      "pred_label": 0,
+      "pred_prob": 0.9998798370361328,
+      "target_type": "pred",
+      "target_class": 0,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/face130k/real/54682.jpg",
+      "corruption": "clean",
+      "severity": 0,
+      "condition": "clean",
+      "corruption_params": {
+        "name": "clean"
+      },
+      "saved_path": "C:/Deepfake-Fusion/outputs/explain/gradcam/face130k/logo/holdout_sdxl/gradcam/face130k_logo_holdout_sdxl/test/best/clean/correct_real/00021_true-real_pred-real_prob-0.9999.png"
+    },
+    {
+      "index": 31,
+      "group": "correct_real",
+      "method": "gradcam",
+      "true_label": 0,
+      "pred_label": 0,
+      "pred_prob": 0.999925971031189,
+      "target_type": "pred",
+      "target_class": 0,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/face130k/real/22230.jpg",
+      "corruption": "clean",
+      "severity": 0,
+      "condition": "clean",
+      "corruption_params": {
+        "name": "clean"
+      },
+      "saved_path": "C:/Deepfake-Fusion/outputs/explain/gradcam/face130k/logo/holdout_sdxl/gradcam/face130k_logo_holdout_sdxl/test/best/clean/correct_real/00031_true-real_pred-real_prob-0.9999.png"
+    },
+    {
+      "index": 36,
+      "group": "wrong_fake",
+      "method": "gradcam",
+      "true_label": 1,
+      "pred_label": 0,
+      "pred_prob": 0.9747691750526428,
+      "target_type": "pred",
+      "target_class": 0,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/face130k/fake/sdxl/SDXL_image_0043159.jpg",
+      "corruption": "clean",
+      "severity": 0,
+      "condition": "clean",
+      "corruption_params": {
+        "name": "clean"
+      },
+      "saved_path": "C:/Deepfake-Fusion/outputs/explain/gradcam/face130k/logo/holdout_sdxl/gradcam/face130k_logo_holdout_sdxl/test/best/clean/wrong_fake/00036_true-fake_pred-real_prob-0.9748.png"
+    },
+    {
+      "index": 100,
+      "group": "wrong_fake",
+      "method": "gradcam",
+      "true_label": 1,
+      "pred_label": 0,
+      "pred_prob": 0.9991724491119385,
+      "target_type": "pred",
+      "target_class": 0,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/face130k/fake/sdxl/SDXL_image_0002307.jpg",
+      "corruption": "clean",
+      "severity": 0,
+      "condition": "clean",
+      "corruption_params": {
+        "name": "clean"
+      },
+      "saved_path": "C:/Deepfake-Fusion/outputs/explain/gradcam/face130k/logo/holdout_sdxl/gradcam/face130k_logo_holdout_sdxl/test/best/clean/wrong_fake/00100_true-fake_pred-real_prob-0.9992.png"
+    },
+    {
+      "index": 161,
+      "group": "wrong_fake",
+      "method": "gradcam",
+      "true_label": 1,
+      "pred_label": 0,
+      "pred_prob": 0.6226875185966492,
+      "target_type": "pred",
+      "target_class": 0,
+      "source_filepath": "C:/Deepfake-Fusion/data/raw/face130k/fake/sdxl/SDXL_image_0039735.jpg",
+      "corruption": "clean",
+      "severity": 0,
+      "condition": "clean",
+      "corruption_params": {
+        "name": "clean"
+      },
+      "saved_path": "C:/Deepfake-Fusion/outputs/explain/gradcam/face130k/logo/holdout_sdxl/gradcam/face130k_logo_holdout_sdxl/test/best/clean/wrong_fake/00161_true-fake_pred-real_prob-0.6227.png"
+    }
+  ]
+}

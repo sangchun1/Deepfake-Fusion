@@ -1,0 +1,194 @@
+_wandb:
+    value:
+        cli_version: 0.25.1
+        e:
+            ce3577bbrt80kywq6bc9pbeu44cm3x62:
+                args:
+                    - --data_config
+                    - C:/Deepfake-Fusion/configs/_generated/face130k_batch/by_generator/flux_dev.yaml
+                    - --model_config
+                    - C:/Deepfake-Fusion/configs/model/resnet18.yaml
+                    - --train_config
+                    - C:/Deepfake-Fusion/configs/train/spatial_resnet_face130k.yaml
+                    - --output_dir
+                    - C:/Deepfake-Fusion/outputs/spatial/resnet18_face130k/by_generator/flux_dev
+                    - --device
+                    - cuda
+                codePath: scripts\train.py
+                codePathLocal: scripts\train.py
+                cpu_count: 8
+                cpu_count_logical: 16
+                cudaVersion: "12.8"
+                disk:
+                    /:
+                        total: "511186038784"
+                        used: "270964195328"
+                email: sangchun241@gmail.com
+                executable: C:\Anaconda\envs\deepfake\python.exe
+                git:
+                    commit: 9d89ae75b5406d8016c04fcbfbdf7960104af09e
+                    remote: https://github.com/sangchun1/Deepfake-Dectection.git
+                gpu: NVIDIA GeForce RTX 4060 Laptop GPU
+                gpu_count: 1
+                gpu_nvidia:
+                    - architecture: Ada
+                      cudaCores: 3072
+                      memoryTotal: "8585740288"
+                      name: NVIDIA GeForce RTX 4060 Laptop GPU
+                      uuid: GPU-a0db0bdd-cbfe-7796-cc5a-2a9982e35ce3
+                host: DESKTOP-28JFK69
+                memory:
+                    total: "33602809856"
+                os: Windows-10-10.0.26200-SP0
+                program: C:\Deepfake-Fusion\scripts\train.py
+                python: CPython 3.10.20
+                root: C:/Deepfake-Fusion/outputs/spatial/resnet18_face130k/by_generator/flux_dev
+                startedAt: "2026-03-28T09:18:17.391815Z"
+                writerId: ce3577bbrt80kywq6bc9pbeu44cm3x62
+        m: []
+        python_version: 3.10.20
+        t:
+            "1":
+                - 1
+                - 5
+                - 41
+                - 49
+                - 53
+                - 63
+            "2":
+                - 1
+                - 5
+                - 41
+                - 49
+                - 53
+                - 63
+            "3":
+                - 2
+                - 13
+                - 15
+                - 16
+                - 61
+                - 62
+            "4": 3.10.20
+            "5": 0.25.1
+            "8":
+                - 3
+            "12": 0.25.1
+            "13": windows-amd64
+data:
+    value:
+        dataloader:
+            batch_size: 64
+            drop_last: false
+            num_workers: 4
+            pin_memory: true
+        dataset_class: FACE130KDataset
+        image:
+            channels: 3
+            input_size: 224
+            mean:
+                - 0.485
+                - 0.456
+                - 0.406
+            std:
+                - 0.229
+                - 0.224
+                - 0.225
+        labels:
+            fake: 1
+            real: 0
+        name: face130k_by_generator_flux_dev
+        num_classes: 2
+        paths:
+            root_dir: data/raw/face130k
+            test_csv: C:/Deepfake-Fusion/data/splits/face130k/by_generator/flux_dev/test.csv
+            train_csv: C:/Deepfake-Fusion/data/splits/face130k/by_generator/flux_dev/train.csv
+            val_csv: C:/Deepfake-Fusion/data/splits/face130k/by_generator/flux_dev/val.csv
+        task: binary_classification
+        test:
+            shuffle: false
+        train:
+            shuffle: true
+        val:
+            shuffle: false
+model:
+    value:
+        backbone:
+            freeze: false
+            in_channels: 3
+            name: resnet18
+            pretrained: true
+        checkpoint:
+            path: null
+            strict: true
+        family: cnn
+        head:
+            dropout: 0.5
+            num_classes: 2
+        name: resnet18
+        pooling: avg
+        source: torchvision
+project_root:
+    value: C:\Deepfake-Fusion
+train:
+    value:
+        augmentation:
+            color_jitter_prob: 0
+            rotation_degrees: 0
+        checkpoint:
+            early_stopping:
+                enabled: true
+                min_delta: 0
+                patience: 5
+            mode: max
+            monitor: val_auc
+            resume_path: null
+            save_top_k: 1
+        evaluation:
+            metrics:
+                - accuracy
+                - precision
+                - recall
+                - f1
+                - auc
+            threshold: 0.5
+        experiment:
+            device: cuda
+            name: spatial_resnet18_face130k
+            output_dir: C:/Deepfake-Fusion/outputs/spatial/resnet18_face130k/by_generator/flux_dev
+            seed: 42
+            task: spatial_classification
+            use_amp: true
+        logging:
+            log_interval: 50
+            use_tqdm: true
+            val_interval: 1
+        loss:
+            label_smoothing: 0
+            name: cross_entropy
+        optimizer:
+            betas:
+                - 0.9
+                - 0.999
+            lr: 0.0001
+            name: adamw
+            weight_decay: 0.001
+        scheduler:
+            eta_min: 1e-06
+            name: cosine
+            t_max: 15
+        train:
+            clip_grad_norm: null
+            epochs: 15
+            grad_accum_steps: 1
+        wandb:
+            enabled: true
+            entity: null
+            log_model: false
+            mode: online
+            name: spatial_resnet18_face130k
+            project: Deepfake-Fusion
+            tags:
+                - face130k
+                - resnet18
+                - spatial

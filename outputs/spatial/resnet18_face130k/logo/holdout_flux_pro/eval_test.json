@@ -1,0 +1,22 @@
+{
+  "dataset_name": "face130k_logo_holdout_flux_pro",
+  "dataset_class": "FACE130KDataset",
+  "split": "test",
+  "checkpoint": "C:/Deepfake-Fusion/outputs/spatial/resnet18_face130k/logo/holdout_flux_pro/best.pth",
+  "metrics": {
+    "accuracy": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "auc": 0.9999999999999999,
+    "loss": 0.00012229902759028358
+  },
+  "dataset_size": 10209,
+  "class_counts": {
+    "0": 7000,
+    "1": 3209
+  },
+  "best_score_in_checkpoint": 1.0,
+  "best_epoch_in_checkpoint": 1,
+  "saved_epoch": 1
+}

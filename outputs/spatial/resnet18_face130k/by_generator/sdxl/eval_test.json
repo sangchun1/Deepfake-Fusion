@@ -1,0 +1,22 @@
+{
+  "dataset_name": "face130k_by_generator_sdxl",
+  "dataset_class": "FACE130KDataset",
+  "split": "test",
+  "checkpoint": "C:/Deepfake-Fusion/outputs/spatial/resnet18_face130k/by_generator/sdxl/best.pth",
+  "metrics": {
+    "accuracy": 0.9999187586318954,
+    "precision": 1.0,
+    "recall": 0.9998116406102844,
+    "f1": 0.9999058114344919,
+    "auc": 1.0,
+    "loss": 0.0002975427549182116
+  },
+  "dataset_size": 12309,
+  "class_counts": {
+    "0": 7000,
+    "1": 5309
+  },
+  "best_score_in_checkpoint": 1.0,
+  "best_epoch_in_checkpoint": 1,
+  "saved_epoch": 1
+}

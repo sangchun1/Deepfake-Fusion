@@ -1,0 +1,22 @@
+{
+  "dataset_name": "face130k_logo_holdout_sdxl",
+  "dataset_class": "FACE130KDataset",
+  "split": "test",
+  "checkpoint": "C:/Deepfake-Fusion/outputs/spatial/resnet18_face130k/logo/holdout_sdxl/best.pth",
+  "metrics": {
+    "accuracy": 0.9807445870154942,
+    "precision": 1.0,
+    "recall": 0.9782055870552112,
+    "f1": 0.9889827361284363,
+    "auc": 0.9999955289026907,
+    "loss": 0.04809706071487954
+  },
+  "dataset_size": 60087,
+  "class_counts": {
+    "0": 7000,
+    "1": 53087
+  },
+  "best_score_in_checkpoint": 1.0,
+  "best_epoch_in_checkpoint": 1,
+  "saved_epoch": 1
+}

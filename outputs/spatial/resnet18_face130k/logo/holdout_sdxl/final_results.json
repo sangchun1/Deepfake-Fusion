@@ -1,0 +1,22 @@
+{
+  "best_checkpoint": "C:/Deepfake-Fusion/outputs/spatial/resnet18_face130k/logo/holdout_sdxl/best.pth",
+  "best_epoch": 1,
+  "best_monitor": "val_auc",
+  "best_score": 1.0,
+  "val_metrics": {
+    "accuracy": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "auc": 1.0,
+    "loss": 0.0001877477260998982
+  },
+  "test_metrics": {
+    "accuracy": 0.9807445870154942,
+    "precision": 1.0,
+    "recall": 0.9782055870552112,
+    "f1": 0.9889827361284363,
+    "auc": 0.9999955289026907,
+    "loss": 0.04809706071487954
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "best_checkpoint": "C:/Deepfake-Fusion/outputs/spatial/resnet18_face130k/logo/holdout_flux_pro/best.pth",
+  "best_epoch": 1,
+  "best_monitor": "val_auc",
+  "best_score": 1.0,
+  "val_metrics": {
+    "accuracy": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "auc": 1.0,
+    "loss": 7.169273458279915e-05
+  },
+  "test_metrics": {
+    "accuracy": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "auc": 0.9999999999999999,
+    "loss": 0.00012229902759028358
+  }
+}

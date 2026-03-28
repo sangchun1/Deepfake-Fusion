@@ -1,0 +1,22 @@
+{
+  "dataset_name": "face130k_by_generator_flux_pro",
+  "dataset_class": "FACE130KDataset",
+  "split": "test",
+  "checkpoint": "C:/Deepfake-Fusion/outputs/spatial/resnet18_face130k/by_generator/flux_pro/best.pth",
+  "metrics": {
+    "accuracy": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "auc": 1.0,
+    "loss": 0.0005839492206503326
+  },
+  "dataset_size": 7321,
+  "class_counts": {
+    "0": 7000,
+    "1": 321
+  },
+  "best_score_in_checkpoint": 1.0,
+  "best_epoch_in_checkpoint": 1,
+  "saved_epoch": 1
+}

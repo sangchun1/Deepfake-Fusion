@@ -1,0 +1,51 @@
+{
+  "os": "Windows-10-10.0.26200-SP0",
+  "python": "CPython 3.10.20",
+  "startedAt": "2026-03-28T11:59:25.188035Z",
+  "args": [
+    "--data_config",
+    "C:/Deepfake-Fusion/configs/_generated/face130k_batch/logo/holdout_sdxl.yaml",
+    "--model_config",
+    "C:/Deepfake-Fusion/configs/model/resnet18.yaml",
+    "--train_config",
+    "C:/Deepfake-Fusion/configs/train/spatial_resnet_face130k.yaml",
+    "--output_dir",
+    "C:/Deepfake-Fusion/outputs/spatial/resnet18_face130k/logo/holdout_sdxl",
+    "--device",
+    "cuda"
+  ],
+  "program": "C:\\Deepfake-Fusion\\scripts\\train.py",
+  "codePath": "scripts\\train.py",
+  "codePathLocal": "scripts\\train.py",
+  "git": {
+    "remote": "https://github.com/sangchun1/Deepfake-Dectection.git",
+    "commit": "cd6ba62b8d0798c72d60b562b2dc2c1452e50c77"
+  },
+  "root": "C:/Deepfake-Fusion/outputs/spatial/resnet18_face130k/logo/holdout_sdxl",
+  "host": "DESKTOP-28JFK69",
+  "executable": "C:\\Anaconda\\envs\\deepfake\\python.exe",
+  "cpu_count": 8,
+  "cpu_count_logical": 16,
+  "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
+  "gpu_count": 1,
+  "disk": {
+    "/": {
+      "total": "511186038784",
+      "used": "275126784000"
+    }
+  },
+  "memory": {
+    "total": "33602809856"
+  },
+  "gpu_nvidia": [
+    {
+      "name": "NVIDIA GeForce RTX 4060 Laptop GPU",
+      "memoryTotal": "8585740288",
+      "cudaCores": 3072,
+      "architecture": "Ada",
+      "uuid": "GPU-a0db0bdd-cbfe-7796-cc5a-2a9982e35ce3"
+    }
+  ],
+  "cudaVersion": "12.8",
+  "writerId": "b7ulv1bm4yhfahp3falanxyknkx86hii"
+}

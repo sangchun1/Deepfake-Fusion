@@ -1,0 +1,67 @@
+{
+  "timestamp": "2026-03-28T19:56:47",
+  "mode": "logo",
+  "resolved_modes": [
+    "logo"
+  ],
+  "base_data_config": "C:/Deepfake-Fusion/configs/data/face130k.yaml",
+  "model_config": "C:/Deepfake-Fusion/configs/model/resnet18.yaml",
+  "train_config": "C:/Deepfake-Fusion/configs/train/spatial_resnet_face130k.yaml",
+  "splits_root": "C:/Deepfake-Fusion/data/splits/face130k",
+  "generated_config_dir": "C:/Deepfake-Fusion/configs/_generated/face130k_batch",
+  "output_root": "C:/Deepfake-Fusion/outputs/spatial/resnet18_face130k",
+  "explain_root": "C:/Deepfake-Fusion/outputs/explain/gradcam/face130k",
+  "root_dir_override": null,
+  "train_only": false,
+  "eval_only": false,
+  "explain_only": false,
+  "run_explain": true,
+  "eval_split": "test",
+  "explain_split": "test",
+  "checkpoint_name": "best.pth",
+  "selected_names": null,
+  "results": [
+    {
+      "mode": "logo",
+      "experiment_name": "holdout_flux_dev",
+      "split_dir": "C:/Deepfake-Fusion/data/splits/face130k/logo/holdout_flux_dev",
+      "generated_data_config": "C:/Deepfake-Fusion/configs/_generated/face130k_batch/logo/holdout_flux_dev.yaml",
+      "output_dir": "C:/Deepfake-Fusion/outputs/spatial/resnet18_face130k/logo/holdout_flux_dev",
+      "train_status": "done",
+      "eval_status": "done",
+      "explain_status": "done",
+      "checkpoint_path": "C:/Deepfake-Fusion/outputs/spatial/resnet18_face130k/logo/holdout_flux_dev/best.pth",
+      "eval_json_path": "C:/Deepfake-Fusion/outputs/spatial/resnet18_face130k/logo/holdout_flux_dev/eval_test.json",
+      "explain_summary_path": "C:/Deepfake-Fusion/outputs/explain/gradcam/face130k/logo/holdout_flux_dev/face130k_logo_holdout_flux_dev/test/best/clean/summary.json",
+      "error": null
+    },
+    {
+      "mode": "logo",
+      "experiment_name": "holdout_flux_pro",
+      "split_dir": "C:/Deepfake-Fusion/data/splits/face130k/logo/holdout_flux_pro",
+      "generated_data_config": "C:/Deepfake-Fusion/configs/_generated/face130k_batch/logo/holdout_flux_pro.yaml",
+      "output_dir": "C:/Deepfake-Fusion/outputs/spatial/resnet18_face130k/logo/holdout_flux_pro",
+      "train_status": "done",
+      "eval_status": "done",
+      "explain_status": "done",
+      "checkpoint_path": "C:/Deepfake-Fusion/outputs/spatial/resnet18_face130k/logo/holdout_flux_pro/best.pth",
+      "eval_json_path": "C:/Deepfake-Fusion/outputs/spatial/resnet18_face130k/logo/holdout_flux_pro/eval_test.json",
+      "explain_summary_path": "C:/Deepfake-Fusion/outputs/explain/gradcam/face130k/logo/holdout_flux_pro/face130k_logo_holdout_flux_pro/test/best/clean/summary.json",
+      "error": null
+    },
+    {
+      "mode": "logo",
+      "experiment_name": "holdout_sdxl",
+      "split_dir": "C:/Deepfake-Fusion/data/splits/face130k/logo/holdout_sdxl",
+      "generated_data_config": "C:/Deepfake-Fusion/configs/_generated/face130k_batch/logo/holdout_sdxl.yaml",
+      "output_dir": "C:/Deepfake-Fusion/outputs/spatial/resnet18_face130k/logo/holdout_sdxl",
+      "train_status": "done",
+      "eval_status": "done",
+      "explain_status": "done",
+      "checkpoint_path": "C:/Deepfake-Fusion/outputs/spatial/resnet18_face130k/logo/holdout_sdxl/best.pth",
+      "eval_json_path": "C:/Deepfake-Fusion/outputs/spatial/resnet18_face130k/logo/holdout_sdxl/eval_test.json",
+      "explain_summary_path": "C:/Deepfake-Fusion/outputs/explain/gradcam/face130k/logo/holdout_sdxl/face130k_logo_holdout_sdxl/test/best/clean/summary.json",
+      "error": null
+    }
+  ]
+}
