@@ -2,20 +2,15 @@ from __future__ import annotations
 
 import argparse
 import json
-# import sys
 from pathlib import Path
 from typing import Any, Dict, Type
 
 import wandb
 from torch.utils.data import DataLoader
 
-# PROJECT_ROOT = Path(__file__).resolve().parents[1]
-# if str(PROJECT_ROOT) not in sys.path:
-#     sys.path.insert(0, str(PROJECT_ROOT))
-
 from deepfake_fusion.datasets.cifake_dataset import CIFAKEDataset
 from deepfake_fusion.datasets.face130k_dataset import FACE130KDataset
-from archive.genimage_dataset import GenImageDataset
+from deepfake_fusion.datasets.openfake_dataset import OpenFakeDataset
 from deepfake_fusion.engine.trainer import Trainer
 from deepfake_fusion.models.build_model import build_model, get_model_summary
 from deepfake_fusion.transforms.image_aug import build_transforms_from_config
@@ -36,10 +31,8 @@ DATASET_REGISTRY: Dict[str, Type] = {
     "CIFAKEDataset": CIFAKEDataset,
     "face130k": FACE130KDataset,
     "FACE130KDataset": FACE130KDataset,
-    "genimage": GenImageDataset,
-    "GenImageDataset": GenImageDataset,
-    "openfake": GenImageDataset,
-    "OpenFakeDataset": GenImageDataset,
+    "openfake": OpenFakeDataset,
+    "OpenFakeDataset": OpenFakeDataset,
 }
 
 
@@ -48,7 +41,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--data_config",
         type=str,
-        default="configs/data/cifake.yaml",
+        default="configs/data/openfake.yaml",
         help="Path to data config YAML.",
     )
     parser.add_argument(
@@ -60,7 +53,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--train_config",
         type=str,
-        default="configs/train/spatial_resnet_cifake.yaml",
+        default="configs/train/spatial_resnet_openfake.yaml",
         help="Path to train config YAML.",
     )
     parser.add_argument(
@@ -239,9 +232,6 @@ def _get_sweep_value(sweep_cfg, key: str, default=None):
 
 
 def _ensure_cfg_section(parent, section_name: str):
-    """
-    cfg.<section_name>이 없으면 빈 dict-like section 생성.
-    """
     if not hasattr(parent, section_name) or getattr(parent, section_name) is None:
         setattr(parent, section_name, {})
     return getattr(parent, section_name)
@@ -328,13 +318,6 @@ def _apply_spai_family_overrides(
     sweep_cfg,
     prefix: str = "",
 ) -> None:
-    """
-    SPAI config 또는 fusion 안의 spectral SPAI config에 공통 적용.
-
-    prefix 예시:
-      - ""         -> standalone spai
-      - "spectral" -> fusion.spectral
-    """
     key_prefix = f"{prefix}_" if prefix else ""
 
     frequency_cfg = _ensure_cfg_section(model_like_cfg, "frequency")
@@ -479,62 +462,6 @@ def _apply_fusion_overrides(cfg, sweep_cfg) -> Any:
 
 
 def apply_sweep_overrides(cfg, sweep_cfg) -> Any:
-    """
-    wandb.config 값으로 base config override.
-
-    공통 파라미터:
-      - lr
-      - weight_decay
-      - batch_size
-      - dropout
-      - epochs
-      - seed
-      - rotation_degrees
-      - color_jitter_prob
-      - warmup_epochs
-      - min_lr
-
-    standalone model:
-      - drop_path_rate
-      - freeze_backbone
-      - img_size
-      - radius_ratio
-      - high_from_residual
-      - mask_mode
-      - num_selected_blocks
-      - token_pool
-      - feature_pool
-      - spectral_feature_mode
-      - mlp_hidden_dim
-      - mlp_hidden_dim2
-
-    fusion model:
-      - spatial_freeze_backbone
-      - spectral_freeze_backbone
-      - spectral_drop_path_rate
-      - spectral_img_size
-      - spectral_radius_ratio
-      - spectral_high_from_residual
-      - spectral_mask_mode
-      - spectral_num_selected_blocks
-      - spectral_token_pool
-      - spectral_feature_pool
-      - spectral_spectral_feature_mode
-      - spectral_mlp_hidden_dim
-      - spectral_mlp_hidden_dim2
-      - projection_out_dim
-      - projection_hidden_dim
-      - projection_dropout
-      - projection_activation
-      - projection_use_layernorm
-      - gate_hidden_dim
-      - gate_mode
-      - fusion_dropout
-      - fusion_use_layernorm
-      - head_hidden_dim
-      - head_dropout
-      - head_activation
-    """
     cfg = _apply_common_overrides(cfg, sweep_cfg)
     cfg = _apply_standalone_model_overrides(cfg, sweep_cfg)
     cfg = _apply_fusion_overrides(cfg, sweep_cfg)
@@ -542,9 +469,6 @@ def apply_sweep_overrides(cfg, sweep_cfg) -> Any:
 
 
 def attach_unique_output_dir(cfg, run_id: str) -> Any:
-    """
-    sweep run끼리 checkpoint가 덮어쓰기 되지 않도록 run별 output_dir 부여.
-    """
     base_output_dir = Path(cfg.train.experiment.output_dir)
     cfg.train.experiment.output_dir = str(base_output_dir / "sweeps" / run_id)
     return cfg

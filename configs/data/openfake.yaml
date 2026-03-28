@@ -1,13 +1,14 @@
 name: openfake
-dataset_class: GenImageDataset
+dataset_class: OpenFakeDataset
+
 num_classes: 2
 task: binary_classification
 
 paths:
   root_dir: data/raw/openfake
-  train_csv: null
-  val_csv: null
-  test_csv: data/splits/openfake/default_test.csv
+  train_csv: data/splits/openfake/merged/train.csv
+  val_csv: data/splits/openfake/merged/val.csv
+  test_csv: data/splits/openfake/merged/test.csv
 
 image:
   input_size: 224
@@ -26,7 +27,7 @@ dataloader:
   drop_last: false
 
 train:
-  shuffle: false
+  shuffle: true
 
 val:
   shuffle: false

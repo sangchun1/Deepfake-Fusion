@@ -63,6 +63,13 @@ def parse_args() -> argparse.Namespace:
         description="Download a balanced OpenFake subset without split folders."
     )
     parser.add_argument(
+        "--stage",
+        type=str,
+        default="all",
+        choices=["all", "pass1", "pass2"],
+        help="all: run pass1+pass2, pass1: sampling only, pass2: save only from selection json",
+    )
+    parser.add_argument(
         "--dataset-id",
         type=str,
         default="ComplexDataLab/OpenFake",
@@ -100,6 +107,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
+        "--selection-json",
+        type=str,
+        default=None,
+        help="Path to selection json. Default: <output-root>/metadata/selection.json",
+    )
+    parser.add_argument(
         "--save-format",
         type=str,
         default="auto",
@@ -124,6 +137,12 @@ def make_output_dirs(output_root: Path, models: List[str]) -> None:
     for model in models:
         (output_root / "fake" / sanitize_model_name(model)).mkdir(parents=True, exist_ok=True)
     (output_root / "metadata").mkdir(parents=True, exist_ok=True)
+
+
+def get_selection_json_path(output_root: Path, selection_json_arg: str | None) -> Path:
+    if selection_json_arg:
+        return Path(selection_json_arg)
+    return output_root / "metadata" / "selection.json"
 
 
 def get_total_rows(dataset_id: str, hf_split: str) -> int | None:
@@ -155,7 +174,7 @@ def load_stream(dataset_id: str, hf_split: str, metadata_only_stream: bool = Fal
         split=hf_split,
         streaming=True,
         features=features,
-        columns=["image", "label", "model", "type", "release_date", "prompt"],
+        columns=["image", "label", "model", "release_date"],
     )
 
 
@@ -194,7 +213,7 @@ def pass1_reservoir_sample(
     total_rows = get_total_rows(dataset_id, hf_split)
     ds = load_stream(dataset_id, hf_split, metadata_only_stream=True)
 
-    for idx, row in enumerate(tqdm(ds, total=total_rows, desc="Pass 1/2: reservoir sampling", unit="row")):
+    for idx, row in enumerate(tqdm(ds, total=total_rows, desc="Pass 1: reservoir sampling", unit="row")):
         label = normalize_label(row.get("label"))
         model = row.get("model")
 
@@ -218,6 +237,54 @@ def pass1_reservoir_sample(
     sampled_fake_indices = {model: sorted(fake_samplers[model].items) for model in target_models}
     sampled_real_indices = sorted(real_sampler.items)
     return sampled_fake_indices, sampled_real_indices, dict(fake_available), real_available
+
+
+def build_selection_payload(
+    args: argparse.Namespace,
+    total_real_needed: int,
+    sampled_fake_indices: Dict[str, List[int]],
+    sampled_real_indices: List[int],
+    fake_available: Dict[str, int],
+    real_available: int,
+) -> dict:
+    return {
+        "dataset_id": args.dataset_id,
+        "hf_split": args.hf_split,
+        "models": args.models,
+        "num_per_model": args.num_per_model,
+        "num_real": total_real_needed,
+        "seed": args.seed,
+        "sampled_fake_indices": sampled_fake_indices,
+        "sampled_real_indices": sampled_real_indices,
+        "fake_available": fake_available,
+        "real_available": real_available,
+    }
+
+
+def save_selection(selection_path: Path, payload: dict) -> None:
+    selection_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(selection_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+
+
+def load_selection(selection_path: Path) -> dict:
+    if not selection_path.exists():
+        raise FileNotFoundError(f"Selection file not found: {selection_path}")
+    with open(selection_path, "r", encoding="utf-8") as f:
+        payload = json.load(f)
+
+    payload["models"] = [str(x) for x in payload["models"]]
+    payload["num_per_model"] = int(payload["num_per_model"])
+    payload["num_real"] = int(payload["num_real"])
+    payload["seed"] = int(payload["seed"])
+    payload["real_available"] = int(payload["real_available"])
+    payload["fake_available"] = {str(k): int(v) for k, v in payload["fake_available"].items()}
+    payload["sampled_fake_indices"] = {
+        str(k): [int(x) for x in v]
+        for k, v in payload["sampled_fake_indices"].items()
+    }
+    payload["sampled_real_indices"] = [int(x) for x in payload["sampled_real_indices"]]
+    return payload
 
 
 def _image_cell_to_bytes_and_path(image_cell) -> tuple[bytes | None, str | None]:
@@ -335,7 +402,7 @@ def pass2_save_subset(
     saved_rows = []
     skipped_bad = 0
 
-    for idx, row in enumerate(tqdm(ds, total=total_rows, desc="Pass 2/2: save selected subset", unit="row")):
+    for idx, row in enumerate(tqdm(ds, total=total_rows, desc="Pass 2: save selected subset", unit="row")):
         if idx not in target_indices:
             continue
 
@@ -364,7 +431,7 @@ def pass2_save_subset(
                     save_image_from_cell(image_cell, out_path)
                 else:
                     convert_and_save_image_from_cell(image_cell, out_path, ext)
-            except (UnidentifiedImageError, OSError, ValueError) as e:
+            except (UnidentifiedImageError, OSError, ValueError):
                 if not skip_bad_images:
                     raise
                 counters[(label, model)] -= 1
@@ -380,9 +447,7 @@ def pass2_save_subset(
                 "label": label,
                 "binary_label": 1 if label == "fake" else 0,
                 "model": model,
-                "type": row.get("type"),
                 "release_date": row.get("release_date"),
-                "prompt": row.get("prompt"),
                 "image_relpath": image_relpath,
             }
         )
@@ -406,9 +471,7 @@ def write_metadata(output_root: Path, rows: list[dict], summary: dict) -> None:
         "label",
         "binary_label",
         "model",
-        "type",
         "release_date",
-        "prompt",
         "image_relpath",
     ]
 
@@ -428,14 +491,17 @@ def build_summary(
     saved_rows: list[dict],
     total_real_needed: int,
     skipped_bad_images: int,
+    selection_path: Path,
 ) -> dict:
     label_counter = Counter(r["label"] for r in saved_rows)
     fake_model_counter = Counter(r["model"] for r in saved_rows if r["label"] == "fake")
 
     return {
+        "stage": args.stage,
         "dataset_id": args.dataset_id,
         "source_hf_split": args.hf_split,
         "output_root": str(Path(args.output_root)),
+        "selection_json": str(selection_path),
         "selected_models": args.models,
         "num_models": len(args.models),
         "num_per_model_fake": args.num_per_model,
@@ -461,54 +527,92 @@ def build_summary(
 def main() -> None:
     args = parse_args()
     output_root = Path(args.output_root)
+    selection_path = get_selection_json_path(output_root, args.selection_json)
     total_real_needed = args.num_real if args.num_real is not None else args.num_per_model * len(args.models)
 
     make_output_dirs(output_root, args.models)
 
-    sampled_fake_indices, sampled_real_indices, fake_available, real_available = pass1_reservoir_sample(
-        dataset_id=args.dataset_id,
-        hf_split=args.hf_split,
-        target_models=args.models,
-        num_per_model=args.num_per_model,
-        total_real_needed=total_real_needed,
-        seed=args.seed,
-    )
+    if args.stage in {"all", "pass1"}:
+        sampled_fake_indices, sampled_real_indices, fake_available, real_available = pass1_reservoir_sample(
+            dataset_id=args.dataset_id,
+            hf_split=args.hf_split,
+            target_models=args.models,
+            num_per_model=args.num_per_model,
+            total_real_needed=total_real_needed,
+            seed=args.seed,
+        )
 
-    saved_rows, skipped_bad_images = pass2_save_subset(
-        dataset_id=args.dataset_id,
-        hf_split=args.hf_split,
-        sampled_fake_indices=sampled_fake_indices,
-        sampled_real_indices=sampled_real_indices,
-        output_root=output_root,
-        save_format=args.save_format,
-        metadata_only=args.metadata_only,
-        skip_bad_images=args.skip_bad_images,
-    )
+        selection_payload = build_selection_payload(
+            args=args,
+            total_real_needed=total_real_needed,
+            sampled_fake_indices=sampled_fake_indices,
+            sampled_real_indices=sampled_real_indices,
+            fake_available=fake_available,
+            real_available=real_available,
+        )
+        save_selection(selection_path, selection_payload)
 
-    summary = build_summary(
-        args=args,
-        fake_available=fake_available,
-        real_available=real_available,
-        saved_rows=saved_rows,
-        total_real_needed=total_real_needed,
-        skipped_bad_images=skipped_bad_images,
-    )
-    write_metadata(output_root, saved_rows, summary)
+        print("=" * 80)
+        print("OpenFake selection finished")
+        print("=" * 80)
+        print(f"selection json : {selection_path}")
+        print(f"selected_models: {len(args.models)}")
+        print(f"fake per model : {args.num_per_model}")
+        print(f"total fake req : {args.num_per_model * len(args.models)}")
+        print(f"total real req : {total_real_needed}")
 
-    print("=" * 80)
-    print("OpenFake raw subset download finished")
-    print("=" * 80)
-    print(f"output_root       : {output_root}")
-    print(f"selected_models   : {len(args.models)}")
-    print(f"fake per model    : {args.num_per_model}")
-    print(f"total fake req    : {args.num_per_model * len(args.models)}")
-    print(f"total real req    : {total_real_needed}")
-    print(f"saved rows        : {len(saved_rows)}")
-    print(f"skipped_bad_images: {skipped_bad_images}")
-    print(f"metadata_only     : {args.metadata_only}")
-    print(f"summary json      : {output_root / 'metadata' / 'summary.json'}")
-    print(f"subset csv        : {output_root / 'metadata' / 'subset.csv'}")
-    print("saved structure   : real/ and fake/<generator>/")
+        if args.stage == "pass1":
+            return
+
+    if args.stage in {"all", "pass2"}:
+        selection_payload = load_selection(selection_path)
+
+        args.dataset_id = selection_payload["dataset_id"]
+        args.hf_split = selection_payload["hf_split"]
+        args.models = selection_payload["models"]
+        args.num_per_model = selection_payload["num_per_model"]
+        args.seed = selection_payload["seed"]
+        total_real_needed = selection_payload["num_real"]
+
+        make_output_dirs(output_root, args.models)
+
+        saved_rows, skipped_bad_images = pass2_save_subset(
+            dataset_id=args.dataset_id,
+            hf_split=args.hf_split,
+            sampled_fake_indices=selection_payload["sampled_fake_indices"],
+            sampled_real_indices=selection_payload["sampled_real_indices"],
+            output_root=output_root,
+            save_format=args.save_format,
+            metadata_only=args.metadata_only,
+            skip_bad_images=args.skip_bad_images,
+        )
+
+        summary = build_summary(
+            args=args,
+            fake_available=selection_payload["fake_available"],
+            real_available=selection_payload["real_available"],
+            saved_rows=saved_rows,
+            total_real_needed=total_real_needed,
+            skipped_bad_images=skipped_bad_images,
+            selection_path=selection_path,
+        )
+        write_metadata(output_root, saved_rows, summary)
+
+        print("=" * 80)
+        print("OpenFake raw subset download finished")
+        print("=" * 80)
+        print(f"selection json    : {selection_path}")
+        print(f"output_root       : {output_root}")
+        print(f"selected_models   : {len(args.models)}")
+        print(f"fake per model    : {args.num_per_model}")
+        print(f"total fake req    : {args.num_per_model * len(args.models)}")
+        print(f"total real req    : {total_real_needed}")
+        print(f"saved rows        : {len(saved_rows)}")
+        print(f"skipped_bad_images: {skipped_bad_images}")
+        print(f"metadata_only     : {args.metadata_only}")
+        print(f"summary json      : {output_root / 'metadata' / 'summary.json'}")
+        print(f"subset csv        : {output_root / 'metadata' / 'subset.csv'}")
+        print("saved structure   : real/ and fake/<generator>/")
 
 
 if __name__ == "__main__":

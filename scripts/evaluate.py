@@ -2,19 +2,14 @@ from __future__ import annotations
 
 import argparse
 import json
-# import sys
 from pathlib import Path
 from typing import Any, Dict, Type
 
 from torch.utils.data import DataLoader
 
-# PROJECT_ROOT = Path(__file__).resolve().parents[1]
-# if str(PROJECT_ROOT) not in sys.path:
-#     sys.path.insert(0, str(PROJECT_ROOT))
-
 from deepfake_fusion.datasets.cifake_dataset import CIFAKEDataset
 from deepfake_fusion.datasets.face130k_dataset import FACE130KDataset
-from archive.genimage_dataset import GenImageDataset
+from deepfake_fusion.datasets.openfake_dataset import OpenFakeDataset
 from deepfake_fusion.engine.trainer import Trainer
 from deepfake_fusion.models.build_model import build_model, get_model_summary
 from deepfake_fusion.transforms.image_aug import build_transforms_from_config
@@ -34,8 +29,8 @@ DATASET_REGISTRY: Dict[str, Type] = {
     "CIFAKEDataset": CIFAKEDataset,
     "face130k": FACE130KDataset,
     "FACE130KDataset": FACE130KDataset,
-    "genimage": GenImageDataset,
-    "GenImageDataset": GenImageDataset,
+    "openfake": OpenFakeDataset,
+    "OpenFakeDataset": OpenFakeDataset,
 }
 
 
@@ -45,7 +40,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--data_config",
         type=str,
-        default="configs/data/cifake.yaml",
+        default="configs/data/openfake.yaml",
         help="Path to data config YAML.",
     )
     parser.add_argument(
@@ -57,7 +52,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--train_config",
         type=str,
-        default="configs/train/spatial_resnet_cifake.yaml",
+        default="configs/train/spatial_resnet_openfake.yaml",
         help="Path to train config YAML.",
     )
     parser.add_argument(

@@ -2,20 +2,15 @@ from __future__ import annotations
 
 import argparse
 import json
-# import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Type
 
 import torch
 
-# PROJECT_ROOT = Path(__file__).resolve().parents[1]
-# if str(PROJECT_ROOT) not in sys.path:
-#     sys.path.insert(0, str(PROJECT_ROOT))
-
 from deepfake_fusion.datasets.cifake_dataset import CIFAKEDataset
 from deepfake_fusion.datasets.face130k_dataset import FACE130KDataset
-from archive.genimage_dataset import GenImageDataset
+from deepfake_fusion.datasets.openfake_dataset import OpenFakeDataset
 from deepfake_fusion.models.build_model import build_model
 from deepfake_fusion.transforms.robustness import (
     build_clean_eval_transform,
@@ -51,11 +46,8 @@ DATASET_REGISTRY: Dict[str, Type] = {
     "CIFAKEDataset": CIFAKEDataset,
     "face130k": FACE130KDataset,
     "FACE130KDataset": FACE130KDataset,
-    "genimage": GenImageDataset,
-    "GenImageDataset": GenImageDataset,
-    # OpenFake를 GenImageDataset 로더로 처리
-    "openfake": GenImageDataset,
-    "OpenFakeDataset": GenImageDataset,
+    "openfake": OpenFakeDataset,
+    "OpenFakeDataset": OpenFakeDataset,
 }
 
 
@@ -64,7 +56,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--data_config",
         type=str,
-        default="configs/data/cifake.yaml",
+        default="configs/data/openfake.yaml",
     )
     parser.add_argument(
         "--model_config",
@@ -74,7 +66,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--train_config",
         type=str,
-        default="configs/train/spatial_resnet_cifake.yaml",
+        default="configs/train/spatial_resnet_openfake.yaml",
     )
     parser.add_argument(
         "--robustness_config",
@@ -311,13 +303,6 @@ def load_checkpoint_to_model(
 
 
 def get_prob_and_pred(logits: torch.Tensor) -> tuple[float, int]:
-    """
-    binary / multiclass logits 지원.
-
-    반환:
-        prob: predicted class confidence 또는 positive probability
-        pred: predicted class index
-    """
     if logits.ndim == 1:
         prob_pos = float(torch.sigmoid(logits)[0].item())
         pred = int(prob_pos >= 0.5)
@@ -360,17 +345,6 @@ def is_fusion_model(model: torch.nn.Module) -> bool:
 def resolve_frequency_explain_components(
     model: torch.nn.Module,
 ) -> tuple[torch.nn.Module, Any]:
-    """
-    frequency 설명에 필요한 (feature_model, frequency_encoder) 반환.
-
-    - SPAI:
-        feature_model = model
-        frequency_encoder = model.frequency_encoder
-
-    - Fusion:
-        feature_model = model
-        frequency_encoder = model.spectral_branch.frequency_encoder
-    """
     if hasattr(model, "frequency_encoder") and hasattr(model, "extract_features"):
         return model, model.frequency_encoder
 
@@ -462,12 +436,6 @@ def build_dataset(
     severity: int = 1,
     robustness_cfg: Optional[Any] = None,
 ):
-    """
-    explain 시각화용 dataset 생성.
-
-    - clean: deterministic eval transform
-    - corrupted: corruption 적용 후 eval transform
-    """
     normalized_corruption = _normalize_corruption_name(corruption_name)
 
     if normalized_corruption == "clean":
@@ -506,8 +474,6 @@ def infer_explain_method(cfg, requested_method: str) -> str:
         return "frequency"
 
     if model_name == "fusion":
-        # v1 기본값: fusion은 spatial branch 기준 Grad-CAM
-        # spectral branch를 보고 싶으면 --method frequency 사용
         return "gradcam"
 
     if model_name == "vit" or backbone_name.startswith("vit"):

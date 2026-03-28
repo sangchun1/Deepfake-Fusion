@@ -33,7 +33,7 @@ def parse_args() -> argparse.Namespace:
         description=(
             "Run batch experiments for merged / by_generator / "
             "leave-one-generator-out (logo) splits, including optional evaluation "
-            "and Grad-CAM explanation."
+            "and explanation."
         )
     )
 
@@ -47,7 +47,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--base_data_config",
         type=str,
-        default="configs/data/genimage.yaml",
+        default="configs/data/openfake.yaml",
         help="Base data config YAML.",
     )
     parser.add_argument(
@@ -59,31 +59,31 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--train_config",
         type=str,
-        default="configs/train/spatial_genimage.yaml",
+        default="configs/train/spatial_resnet_openfake.yaml",
         help="Train config path.",
     )
     parser.add_argument(
         "--splits_root",
         type=str,
-        default="data/splits/genimage",
+        default="data/splits/openfake",
         help="Root directory containing merged/by_generator/logo split folders.",
     )
     parser.add_argument(
         "--generated_config_dir",
         type=str,
-        default="configs/_generated/genimage_batch",
+        default="configs/_generated/openfake_batch",
         help="Where generated per-experiment data configs will be stored.",
     )
     parser.add_argument(
         "--output_root",
         type=str,
-        default="outputs/spatial/genimage",
+        default="outputs/spatial/openfake",
         help="Base output directory for train/eval artifacts.",
     )
     parser.add_argument(
         "--explain_root",
         type=str,
-        default="outputs/gradcam/genimage",
+        default="outputs/explain/openfake",
         help="Base output directory for explain artifacts.",
     )
     parser.add_argument(
@@ -101,7 +101,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help=(
             "Optional subset of experiment folder names to run. "
-            "Examples: merged flux_dev sdxl holdout_flux_dev"
+            "Examples: merged sd-3.5 flux.1-dev midjourney-6"
         ),
     )
     parser.add_argument(
@@ -184,25 +184,32 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default="pred",
         choices=["pred", "true"],
-        help="Grad-CAM target type.",
+        help="Explanation target type.",
     )
     parser.add_argument(
         "--max_per_group",
         type=int,
         default=4,
-        help="Max Grad-CAM examples per group.",
+        help="Max saved examples per group.",
     )
     parser.add_argument(
         "--alpha",
         type=float,
         default=0.35,
-        help="Grad-CAM overlay alpha.",
+        help="Overlay alpha.",
     )
     parser.add_argument(
         "--target_layer",
         type=str,
         default=None,
         help="Optional explicit Grad-CAM target layer.",
+    )
+    parser.add_argument(
+        "--method",
+        type=str,
+        default=None,
+        choices=["auto", "gradcam", "rollout", "frequency"],
+        help="Optional explain method override.",
     )
 
     args = parser.parse_args()
@@ -256,7 +263,7 @@ def discover_experiment_dirs(
     selected = set(selected_names) if selected_names else None
 
     if mode == "merged":
-        exp_name = mode_dir.name  # "merged"
+        exp_name = mode_dir.name
         if selected is not None and exp_name not in selected:
             raise RuntimeError(
                 f"No experiment directories found under: {mode_dir} "
@@ -370,6 +377,7 @@ def make_explain_command(
     max_per_group: int,
     alpha: float,
     target_layer: str | None,
+    method: str | None,
 ) -> List[str]:
     cmd = [
         python_executable,
@@ -397,6 +405,8 @@ def make_explain_command(
         cmd.extend(["--device", device])
     if target_layer is not None:
         cmd.extend(["--target_layer", target_layer])
+    if method is not None:
+        cmd.extend(["--method", method])
     return cmd
 
 
@@ -468,12 +478,15 @@ def main() -> None:
             checkpoint_path = output_dir / args.checkpoint_name
             eval_json_path = output_dir / f"eval_{args.eval_split}.json"
 
-            explain_base_dir = explain_root / mode / exp_name
+            generated_dataset_name = f"{base_data_cfg.get('name', 'dataset')}_{mode}_{exp_name}"
             explain_summary_path = (
-                explain_base_dir
-                / f"{base_data_cfg.get('name', 'dataset')}_{mode}_{exp_name}"
+                explain_root
+                / mode
+                / exp_name
+                / generated_dataset_name
                 / args.explain_split
                 / Path(args.checkpoint_name).stem
+                / "clean"
                 / "summary.json"
             )
 
@@ -488,7 +501,6 @@ def main() -> None:
                 "explain_status": "not_run",
                 "checkpoint_path": checkpoint_path.as_posix(),
                 "eval_json_path": eval_json_path.as_posix(),
-                "explain_base_dir": explain_base_dir.as_posix(),
                 "explain_summary_path": explain_summary_path.as_posix(),
                 "error": None,
             }
@@ -562,6 +574,8 @@ def main() -> None:
                                 f"Checkpoint for explanation not found: {checkpoint_path}"
                             )
 
+                        explain_save_dir = explain_root / mode / exp_name
+
                         explain_cmd = make_explain_command(
                             python_executable=args.python,
                             data_config=generated_data_config_path,
@@ -569,12 +583,13 @@ def main() -> None:
                             train_config=train_config_path,
                             checkpoint_path=checkpoint_path,
                             explain_split=args.explain_split,
-                            save_dir=explain_base_dir,
+                            save_dir=explain_save_dir,
                             device=args.device,
                             target_type=args.target_type,
                             max_per_group=args.max_per_group,
                             alpha=args.alpha,
                             target_layer=args.target_layer,
+                            method=args.method,
                         )
                         run_command(explain_cmd, cwd=project_root)
                         result["explain_status"] = "done"
