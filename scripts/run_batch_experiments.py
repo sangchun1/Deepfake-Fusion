@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import re
 import subprocess
 import sys
 from datetime import datetime
@@ -72,7 +73,7 @@ def parse_args() -> argparse.Namespace:
         "--generated_config_dir",
         type=str,
         default="configs/_generated/openfake_batch",
-        help="Where generated per-experiment data configs will be stored.",
+        help="Where generated per-experiment configs will be stored.",
     )
     parser.add_argument(
         "--output_root",
@@ -251,6 +252,29 @@ def save_json(data: Dict, path: Path) -> None:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 
+def sanitize_name_token(text: str) -> str:
+    token = re.sub(r"[^0-9A-Za-z]+", "_", str(text)).strip("_")
+    token = re.sub(r"_+", "_", token)
+    return token
+
+
+def build_wandb_run_name(base_train_cfg: Dict, mode: str, exp_name: str) -> str:
+    base_name = (
+        base_train_cfg.get("wandb", {}).get("name")
+        or base_train_cfg.get("experiment", {}).get("name")
+        or "run"
+    )
+    exp_token = sanitize_name_token(exp_name)
+
+    if mode == "merged":
+        return str(base_name)
+    if mode == "by_generator":
+        return f"{base_name}_{exp_token}"
+    if mode == "logo":
+        return f"{base_name}_holdout_{exp_token}"
+    return f"{base_name}_{mode}_{exp_token}"
+
+
 def discover_experiment_dirs(
     splits_root: Path,
     mode: str,
@@ -289,7 +313,7 @@ def build_generated_data_config(
     root_dir_override: str | None,
     mode: str,
     exp_name: str,
-) -> None:
+) -> Dict:
     cfg = copy.deepcopy(base_cfg)
 
     if "paths" not in cfg:
@@ -306,6 +330,28 @@ def build_generated_data_config(
     cfg["name"] = f"{base_name}_{mode}_{exp_name}"
 
     save_yaml(cfg, generated_config_path)
+    return cfg
+
+
+def build_generated_train_config(
+    base_cfg: Dict,
+    generated_train_config_path: Path,
+    mode: str,
+    exp_name: str,
+    output_dir: Path,
+) -> Dict:
+    cfg = copy.deepcopy(base_cfg)
+
+    if "experiment" not in cfg:
+        raise ValueError("Base train config must contain an 'experiment' section.")
+
+    cfg["experiment"]["output_dir"] = output_dir.as_posix()
+
+    if "wandb" in cfg and isinstance(cfg["wandb"], dict):
+        cfg["wandb"]["name"] = build_wandb_run_name(base_cfg, mode, exp_name)
+
+    save_yaml(cfg, generated_train_config_path)
+    return cfg
 
 
 def make_train_command(
@@ -437,6 +483,7 @@ def main() -> None:
     explain_root = resolve_path(args.explain_root)
 
     base_data_cfg = load_yaml(base_data_config_path)
+    base_train_cfg = load_yaml(train_config_path)
 
     selected_names = set(args.names) if args.names else None
     modes = resolve_modes(args.mode)
@@ -473,12 +520,35 @@ def main() -> None:
 
         for exp_dir in exp_dirs:
             exp_name = exp_dir.name
-            generated_data_config_path = generated_config_dir / mode / f"{exp_name}.yaml"
+            generated_data_config_path = generated_config_dir / mode / "data" / f"{exp_name}.yaml"
+            generated_train_config_path = generated_config_dir / mode / "train" / f"{exp_name}.yaml"
             output_dir = output_root / mode / exp_name
             checkpoint_path = output_dir / args.checkpoint_name
             eval_json_path = output_dir / f"eval_{args.eval_split}.json"
 
-            generated_dataset_name = f"{base_data_cfg.get('name', 'dataset')}_{mode}_{exp_name}"
+            generated_data_cfg = build_generated_data_config(
+                base_cfg=base_data_cfg,
+                exp_dir=exp_dir,
+                generated_config_path=generated_data_config_path,
+                root_dir_override=args.root_dir,
+                mode=mode,
+                exp_name=exp_name,
+            )
+            generated_train_cfg = build_generated_train_config(
+                base_cfg=base_train_cfg,
+                generated_train_config_path=generated_train_config_path,
+                mode=mode,
+                exp_name=exp_name,
+                output_dir=output_dir,
+            )
+
+            generated_dataset_name = str(generated_data_cfg.get("name", "dataset"))
+            generated_wandb_name = (
+                generated_train_cfg.get("wandb", {}).get("name")
+                if isinstance(generated_train_cfg.get("wandb"), dict)
+                else None
+            )
+
             explain_summary_path = (
                 explain_root
                 / mode
@@ -495,6 +565,8 @@ def main() -> None:
                 "experiment_name": exp_name,
                 "split_dir": exp_dir.as_posix(),
                 "generated_data_config": generated_data_config_path.as_posix(),
+                "generated_train_config": generated_train_config_path.as_posix(),
+                "wandb_run_name": generated_wandb_name,
                 "output_dir": output_dir.as_posix(),
                 "train_status": "not_run",
                 "eval_status": "not_run",
@@ -509,15 +581,8 @@ def main() -> None:
                 print("\n" + "#" * 100)
                 print(f"[{mode}] {exp_name}")
                 print("#" * 100)
-
-                build_generated_data_config(
-                    base_cfg=base_data_cfg,
-                    exp_dir=exp_dir,
-                    generated_config_path=generated_data_config_path,
-                    root_dir_override=args.root_dir,
-                    mode=mode,
-                    exp_name=exp_name,
-                )
+                if generated_wandb_name is not None:
+                    print(f"W&B run name: {generated_wandb_name}")
 
                 if not args.eval_only and not args.explain_only:
                     if args.skip_existing_train and checkpoint_path.exists():
@@ -530,7 +595,7 @@ def main() -> None:
                             python_executable=args.python,
                             data_config=generated_data_config_path,
                             model_config=model_config_path,
-                            train_config=train_config_path,
+                            train_config=generated_train_config_path,
                             output_dir=output_dir,
                             device=args.device,
                         )
@@ -553,7 +618,7 @@ def main() -> None:
                             python_executable=args.python,
                             data_config=generated_data_config_path,
                             model_config=model_config_path,
-                            train_config=train_config_path,
+                            train_config=generated_train_config_path,
                             checkpoint_path=checkpoint_path,
                             eval_split=args.eval_split,
                             output_json=eval_json_path,
@@ -580,7 +645,7 @@ def main() -> None:
                             python_executable=args.python,
                             data_config=generated_data_config_path,
                             model_config=model_config_path,
-                            train_config=train_config_path,
+                            train_config=generated_train_config_path,
                             checkpoint_path=checkpoint_path,
                             explain_split=args.explain_split,
                             save_dir=explain_save_dir,

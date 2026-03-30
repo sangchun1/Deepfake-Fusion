@@ -1,0 +1,22 @@
+{
+  "dataset_name": "openfake_by_generator_ideogram-3.0",
+  "dataset_class": "OpenFakeDataset",
+  "split": "test",
+  "checkpoint": "C:/Deepfake-Fusion/outputs/spatial/resnet18_openfake/by_generator/ideogram-3.0/best.pth",
+  "metrics": {
+    "accuracy": 0.9790494058786742,
+    "precision": 0.9805520702634881,
+    "recall": 0.9774859287054409,
+    "f1": 0.9790165988098967,
+    "auc": 0.9975631658466966,
+    "loss": 0.06160032284038935
+  },
+  "dataset_size": 3198,
+  "class_counts": {
+    "0": 1599,
+    "1": 1599
+  },
+  "best_score_in_checkpoint": 0.99588828125,
+  "best_epoch_in_checkpoint": 10,
+  "saved_epoch": 10
+}

@@ -1,0 +1,22 @@
+{
+  "best_checkpoint": "C:/Deepfake-Fusion/outputs/spatial/resnet18_openfake/by_generator/flux-mvc5000/best.pth",
+  "best_epoch": 10,
+  "best_monitor": "val_auc",
+  "best_score": 0.995459375,
+  "val_metrics": {
+    "accuracy": 0.968125,
+    "precision": 0.9746514575411914,
+    "recall": 0.96125,
+    "f1": 0.9679043423536816,
+    "auc": 0.995459375,
+    "loss": 0.10209152817726136
+  },
+  "test_metrics": {
+    "accuracy": 0.9721701063164477,
+    "precision": 0.9796696315120712,
+    "recall": 0.9643527204502814,
+    "f1": 0.9719508351717617,
+    "auc": 0.9971065405559525,
+    "loss": 0.0763076246064331
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "dataset_name": "openfake_by_generator_midjourney-6",
+  "dataset_class": "OpenFakeDataset",
+  "split": "test",
+  "checkpoint": "C:/Deepfake-Fusion/outputs/spatial/resnet18_openfake/by_generator/midjourney-6/best.pth",
+  "metrics": {
+    "accuracy": 0.9815509693558474,
+    "precision": 0.9788557213930348,
+    "recall": 0.9843652282676673,
+    "f1": 0.9816027439975055,
+    "auc": 0.9985434924344914,
+    "loss": 0.054391230215983064
+  },
+  "dataset_size": 3198,
+  "class_counts": {
+    "0": 1599,
+    "1": 1599
+  },
+  "best_score_in_checkpoint": 0.99677734375,
+  "best_epoch_in_checkpoint": 10,
+  "saved_epoch": 10
+}

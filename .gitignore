@@ -210,9 +210,11 @@ __marimo__/
 data/raw/
 data/processed/
 outputs/*/*/wandb/
-outputs/*/*/*.pth
-*pth
+outputs/*/*/*/*/wandb/
+*.pth
 outputs/*/*/sweeps/
 
 command.md
 archive/
+
+*.wandb

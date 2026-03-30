@@ -1,0 +1,22 @@
+{
+  "dataset_name": "openfake_by_generator_hidream-i1-full",
+  "dataset_class": "OpenFakeDataset",
+  "split": "test",
+  "checkpoint": "C:/Deepfake-Fusion/outputs/spatial/resnet18_openfake/by_generator/hidream-i1-full/best.pth",
+  "metrics": {
+    "accuracy": 0.9559099437148217,
+    "precision": 0.9527950310559006,
+    "recall": 0.959349593495935,
+    "f1": 0.9560610782175133,
+    "auc": 0.9918190739130656,
+    "loss": 0.13049942449555313
+  },
+  "dataset_size": 3198,
+  "class_counts": {
+    "0": 1599,
+    "1": 1599
+  },
+  "best_score_in_checkpoint": 0.9914804687500001,
+  "best_epoch_in_checkpoint": 7,
+  "saved_epoch": 7
+}

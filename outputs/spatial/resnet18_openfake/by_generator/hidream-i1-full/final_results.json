@@ -1,0 +1,22 @@
+{
+  "best_checkpoint": "C:/Deepfake-Fusion/outputs/spatial/resnet18_openfake/by_generator/hidream-i1-full/best.pth",
+  "best_epoch": 7,
+  "best_monitor": "val_auc",
+  "best_score": 0.9914804687500001,
+  "val_metrics": {
+    "accuracy": 0.9525,
+    "precision": 0.9513715710723192,
+    "recall": 0.95375,
+    "f1": 0.9525593008739076,
+    "auc": 0.9914804687500001,
+    "loss": 0.12551097944378853
+  },
+  "test_metrics": {
+    "accuracy": 0.9559099437148217,
+    "precision": 0.9527950310559006,
+    "recall": 0.959349593495935,
+    "f1": 0.9560610782175133,
+    "auc": 0.9918190739130656,
+    "loss": 0.13049942449555313
+  }
+}

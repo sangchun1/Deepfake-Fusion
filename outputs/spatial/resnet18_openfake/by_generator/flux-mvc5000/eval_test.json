@@ -1,0 +1,22 @@
+{
+  "dataset_name": "openfake_by_generator_flux-mvc5000",
+  "dataset_class": "OpenFakeDataset",
+  "split": "test",
+  "checkpoint": "C:/Deepfake-Fusion/outputs/spatial/resnet18_openfake/by_generator/flux-mvc5000/best.pth",
+  "metrics": {
+    "accuracy": 0.9721701063164477,
+    "precision": 0.9796696315120712,
+    "recall": 0.9643527204502814,
+    "f1": 0.9719508351717617,
+    "auc": 0.9971065405559525,
+    "loss": 0.0763076246064331
+  },
+  "dataset_size": 3198,
+  "class_counts": {
+    "0": 1599,
+    "1": 1599
+  },
+  "best_score_in_checkpoint": 0.995459375,
+  "best_epoch_in_checkpoint": 10,
+  "saved_epoch": 10
+}

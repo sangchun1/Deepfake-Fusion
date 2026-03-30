@@ -1,0 +1,22 @@
+{
+  "best_checkpoint": "C:/Deepfake-Fusion/outputs/spatial/resnet18_openfake/by_generator/midjourney-6/best.pth",
+  "best_epoch": 10,
+  "best_monitor": "val_auc",
+  "best_score": 0.99677734375,
+  "val_metrics": {
+    "accuracy": 0.98125,
+    "precision": 0.972972972972973,
+    "recall": 0.99,
+    "f1": 0.9814126394052045,
+    "auc": 0.99677734375,
+    "loss": 0.06296326540410518
+  },
+  "test_metrics": {
+    "accuracy": 0.9815509693558474,
+    "precision": 0.9788557213930348,
+    "recall": 0.9843652282676673,
+    "f1": 0.9816027439975055,
+    "auc": 0.9985434924344914,
+    "loss": 0.054391230215983064
+  }
+}
