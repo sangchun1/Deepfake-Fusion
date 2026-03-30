@@ -1,0 +1,22 @@
+{
+  "dataset_name": "openfake_merged_merged",
+  "dataset_class": "OpenFakeDataset",
+  "split": "test",
+  "checkpoint": "C:/Deepfake-Fusion/outputs/spatial/resnet18_openfake/merged/merged/best.pth",
+  "metrics": {
+    "accuracy": 0.9551515782894051,
+    "precision": 0.9585913718904168,
+    "recall": 0.9514011876237108,
+    "f1": 0.9549827460002092,
+    "auc": 0.990569814180365,
+    "loss": 0.17608693110471232
+  },
+  "dataset_size": 38396,
+  "class_counts": {
+    "0": 19198,
+    "1": 19198
+  },
+  "best_score_in_checkpoint": 0.9907752267098265,
+  "best_epoch_in_checkpoint": 10,
+  "saved_epoch": 10
+}

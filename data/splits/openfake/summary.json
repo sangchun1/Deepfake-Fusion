@@ -1,0 +1,808 @@
+{
+  "input_root": "C:\\Deepfake-Fusion\\data\\raw\\openfake",
+  "output_root": "C:\\Deepfake-Fusion\\data\\splits\\openfake",
+  "seed": 42,
+  "generators": [
+    "sd-3.5",
+    "flux.1-dev",
+    "flux-1.1-pro",
+    "midjourney-6",
+    "dalle-3",
+    "gpt-image-1",
+    "ideogram-3.0",
+    "hidream-i1-full",
+    "grok-2-image-1212",
+    "imagen-4.0",
+    "sdxl-epic-realism",
+    "flux-mvc5000"
+  ],
+  "modes": {
+    "merged": {
+      "usable_total_per_class": 95991,
+      "real_counts": {
+        "train": 67194,
+        "val": 9599,
+        "test": 19198
+      },
+      "fake_counts": {
+        "train": 67194,
+        "val": 9599,
+        "test": 19198
+      },
+      "csv_counts": {
+        "train": 134388,
+        "val": 19198,
+        "test": 38396
+      }
+    },
+    "by_generator": {
+      "sd-3.5": {
+        "requested_total_per_class": 8000,
+        "usable_total_per_class": 7997,
+        "real_counts": {
+          "train": 5598,
+          "val": 800,
+          "test": 1599
+        },
+        "fake_counts": {
+          "train": 5598,
+          "val": 800,
+          "test": 1599
+        },
+        "csv_counts": {
+          "train": 11196,
+          "val": 1600,
+          "test": 3198
+        }
+      },
+      "flux.1-dev": {
+        "requested_total_per_class": 8000,
+        "usable_total_per_class": 7997,
+        "real_counts": {
+          "train": 5598,
+          "val": 800,
+          "test": 1599
+        },
+        "fake_counts": {
+          "train": 5598,
+          "val": 800,
+          "test": 1599
+        },
+        "csv_counts": {
+          "train": 11196,
+          "val": 1600,
+          "test": 3198
+        }
+      },
+      "flux-1.1-pro": {
+        "requested_total_per_class": 8000,
+        "usable_total_per_class": 7997,
+        "real_counts": {
+          "train": 5598,
+          "val": 800,
+          "test": 1599
+        },
+        "fake_counts": {
+          "train": 5598,
+          "val": 800,
+          "test": 1599
+        },
+        "csv_counts": {
+          "train": 11196,
+          "val": 1600,
+          "test": 3198
+        }
+      },
+      "midjourney-6": {
+        "requested_total_per_class": 8000,
+        "usable_total_per_class": 7997,
+        "real_counts": {
+          "train": 5598,
+          "val": 800,
+          "test": 1599
+        },
+        "fake_counts": {
+          "train": 5598,
+          "val": 800,
+          "test": 1599
+        },
+        "csv_counts": {
+          "train": 11196,
+          "val": 1600,
+          "test": 3198
+        }
+      },
+      "dalle-3": {
+        "requested_total_per_class": 8000,
+        "usable_total_per_class": 7997,
+        "real_counts": {
+          "train": 5598,
+          "val": 800,
+          "test": 1599
+        },
+        "fake_counts": {
+          "train": 5598,
+          "val": 800,
+          "test": 1599
+        },
+        "csv_counts": {
+          "train": 11196,
+          "val": 1600,
+          "test": 3198
+        }
+      },
+      "gpt-image-1": {
+        "requested_total_per_class": 8000,
+        "usable_total_per_class": 7997,
+        "real_counts": {
+          "train": 5598,
+          "val": 800,
+          "test": 1599
+        },
+        "fake_counts": {
+          "train": 5598,
+          "val": 800,
+          "test": 1599
+        },
+        "csv_counts": {
+          "train": 11196,
+          "val": 1600,
+          "test": 3198
+        }
+      },
+      "ideogram-3.0": {
+        "requested_total_per_class": 8000,
+        "usable_total_per_class": 7997,
+        "real_counts": {
+          "train": 5598,
+          "val": 800,
+          "test": 1599
+        },
+        "fake_counts": {
+          "train": 5598,
+          "val": 800,
+          "test": 1599
+        },
+        "csv_counts": {
+          "train": 11196,
+          "val": 1600,
+          "test": 3198
+        }
+      },
+      "hidream-i1-full": {
+        "requested_total_per_class": 8000,
+        "usable_total_per_class": 7997,
+        "real_counts": {
+          "train": 5598,
+          "val": 800,
+          "test": 1599
+        },
+        "fake_counts": {
+          "train": 5598,
+          "val": 800,
+          "test": 1599
+        },
+        "csv_counts": {
+          "train": 11196,
+          "val": 1600,
+          "test": 3198
+        }
+      },
+      "grok-2-image-1212": {
+        "requested_total_per_class": 8000,
+        "usable_total_per_class": 7997,
+        "real_counts": {
+          "train": 5598,
+          "val": 800,
+          "test": 1599
+        },
+        "fake_counts": {
+          "train": 5598,
+          "val": 800,
+          "test": 1599
+        },
+        "csv_counts": {
+          "train": 11196,
+          "val": 1600,
+          "test": 3198
+        }
+      },
+      "imagen-4.0": {
+        "requested_total_per_class": 8000,
+        "usable_total_per_class": 7997,
+        "real_counts": {
+          "train": 5598,
+          "val": 800,
+          "test": 1599
+        },
+        "fake_counts": {
+          "train": 5598,
+          "val": 800,
+          "test": 1599
+        },
+        "csv_counts": {
+          "train": 11196,
+          "val": 1600,
+          "test": 3198
+        }
+      },
+      "sdxl-epic-realism": {
+        "requested_total_per_class": 8000,
+        "usable_total_per_class": 7997,
+        "real_counts": {
+          "train": 5598,
+          "val": 800,
+          "test": 1599
+        },
+        "fake_counts": {
+          "train": 5598,
+          "val": 800,
+          "test": 1599
+        },
+        "csv_counts": {
+          "train": 11196,
+          "val": 1600,
+          "test": 3198
+        }
+      },
+      "flux-mvc5000": {
+        "requested_total_per_class": 8000,
+        "usable_total_per_class": 7997,
+        "real_counts": {
+          "train": 5598,
+          "val": 800,
+          "test": 1599
+        },
+        "fake_counts": {
+          "train": 5598,
+          "val": 800,
+          "test": 1599
+        },
+        "csv_counts": {
+          "train": 11196,
+          "val": 1600,
+          "test": 3198
+        }
+      }
+    },
+    "logo": {
+      "sd-3.5": {
+        "heldout_generator": "sd-3.5",
+        "seen_generators": [
+          "flux.1-dev",
+          "flux-1.1-pro",
+          "midjourney-6",
+          "dalle-3",
+          "gpt-image-1",
+          "ideogram-3.0",
+          "hidream-i1-full",
+          "grok-2-image-1212",
+          "imagen-4.0",
+          "sdxl-epic-realism",
+          "flux-mvc5000"
+        ],
+        "requested_fake_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "used_fake_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "real_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "csv_counts": {
+          "train": 123196,
+          "val": 17600,
+          "test": 16000
+        },
+        "note": "LOGO keeps the held-out generator in test as much as possible. If real images are insufficient, train/val are reduced first."
+      },
+      "flux.1-dev": {
+        "heldout_generator": "flux.1-dev",
+        "seen_generators": [
+          "sd-3.5",
+          "flux-1.1-pro",
+          "midjourney-6",
+          "dalle-3",
+          "gpt-image-1",
+          "ideogram-3.0",
+          "hidream-i1-full",
+          "grok-2-image-1212",
+          "imagen-4.0",
+          "sdxl-epic-realism",
+          "flux-mvc5000"
+        ],
+        "requested_fake_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "used_fake_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "real_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "csv_counts": {
+          "train": 123196,
+          "val": 17600,
+          "test": 16000
+        },
+        "note": "LOGO keeps the held-out generator in test as much as possible. If real images are insufficient, train/val are reduced first."
+      },
+      "flux-1.1-pro": {
+        "heldout_generator": "flux-1.1-pro",
+        "seen_generators": [
+          "sd-3.5",
+          "flux.1-dev",
+          "midjourney-6",
+          "dalle-3",
+          "gpt-image-1",
+          "ideogram-3.0",
+          "hidream-i1-full",
+          "grok-2-image-1212",
+          "imagen-4.0",
+          "sdxl-epic-realism",
+          "flux-mvc5000"
+        ],
+        "requested_fake_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "used_fake_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "real_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "csv_counts": {
+          "train": 123196,
+          "val": 17600,
+          "test": 16000
+        },
+        "note": "LOGO keeps the held-out generator in test as much as possible. If real images are insufficient, train/val are reduced first."
+      },
+      "midjourney-6": {
+        "heldout_generator": "midjourney-6",
+        "seen_generators": [
+          "sd-3.5",
+          "flux.1-dev",
+          "flux-1.1-pro",
+          "dalle-3",
+          "gpt-image-1",
+          "ideogram-3.0",
+          "hidream-i1-full",
+          "grok-2-image-1212",
+          "imagen-4.0",
+          "sdxl-epic-realism",
+          "flux-mvc5000"
+        ],
+        "requested_fake_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "used_fake_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "real_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "csv_counts": {
+          "train": 123196,
+          "val": 17600,
+          "test": 16000
+        },
+        "note": "LOGO keeps the held-out generator in test as much as possible. If real images are insufficient, train/val are reduced first."
+      },
+      "dalle-3": {
+        "heldout_generator": "dalle-3",
+        "seen_generators": [
+          "sd-3.5",
+          "flux.1-dev",
+          "flux-1.1-pro",
+          "midjourney-6",
+          "gpt-image-1",
+          "ideogram-3.0",
+          "hidream-i1-full",
+          "grok-2-image-1212",
+          "imagen-4.0",
+          "sdxl-epic-realism",
+          "flux-mvc5000"
+        ],
+        "requested_fake_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "used_fake_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "real_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "csv_counts": {
+          "train": 123196,
+          "val": 17600,
+          "test": 16000
+        },
+        "note": "LOGO keeps the held-out generator in test as much as possible. If real images are insufficient, train/val are reduced first."
+      },
+      "gpt-image-1": {
+        "heldout_generator": "gpt-image-1",
+        "seen_generators": [
+          "sd-3.5",
+          "flux.1-dev",
+          "flux-1.1-pro",
+          "midjourney-6",
+          "dalle-3",
+          "ideogram-3.0",
+          "hidream-i1-full",
+          "grok-2-image-1212",
+          "imagen-4.0",
+          "sdxl-epic-realism",
+          "flux-mvc5000"
+        ],
+        "requested_fake_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "used_fake_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "real_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "csv_counts": {
+          "train": 123196,
+          "val": 17600,
+          "test": 16000
+        },
+        "note": "LOGO keeps the held-out generator in test as much as possible. If real images are insufficient, train/val are reduced first."
+      },
+      "ideogram-3.0": {
+        "heldout_generator": "ideogram-3.0",
+        "seen_generators": [
+          "sd-3.5",
+          "flux.1-dev",
+          "flux-1.1-pro",
+          "midjourney-6",
+          "dalle-3",
+          "gpt-image-1",
+          "hidream-i1-full",
+          "grok-2-image-1212",
+          "imagen-4.0",
+          "sdxl-epic-realism",
+          "flux-mvc5000"
+        ],
+        "requested_fake_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "used_fake_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "real_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "csv_counts": {
+          "train": 123196,
+          "val": 17600,
+          "test": 16000
+        },
+        "note": "LOGO keeps the held-out generator in test as much as possible. If real images are insufficient, train/val are reduced first."
+      },
+      "hidream-i1-full": {
+        "heldout_generator": "hidream-i1-full",
+        "seen_generators": [
+          "sd-3.5",
+          "flux.1-dev",
+          "flux-1.1-pro",
+          "midjourney-6",
+          "dalle-3",
+          "gpt-image-1",
+          "ideogram-3.0",
+          "grok-2-image-1212",
+          "imagen-4.0",
+          "sdxl-epic-realism",
+          "flux-mvc5000"
+        ],
+        "requested_fake_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "used_fake_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "real_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "csv_counts": {
+          "train": 123196,
+          "val": 17600,
+          "test": 16000
+        },
+        "note": "LOGO keeps the held-out generator in test as much as possible. If real images are insufficient, train/val are reduced first."
+      },
+      "grok-2-image-1212": {
+        "heldout_generator": "grok-2-image-1212",
+        "seen_generators": [
+          "sd-3.5",
+          "flux.1-dev",
+          "flux-1.1-pro",
+          "midjourney-6",
+          "dalle-3",
+          "gpt-image-1",
+          "ideogram-3.0",
+          "hidream-i1-full",
+          "imagen-4.0",
+          "sdxl-epic-realism",
+          "flux-mvc5000"
+        ],
+        "requested_fake_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "used_fake_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "real_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "csv_counts": {
+          "train": 123196,
+          "val": 17600,
+          "test": 16000
+        },
+        "note": "LOGO keeps the held-out generator in test as much as possible. If real images are insufficient, train/val are reduced first."
+      },
+      "imagen-4.0": {
+        "heldout_generator": "imagen-4.0",
+        "seen_generators": [
+          "sd-3.5",
+          "flux.1-dev",
+          "flux-1.1-pro",
+          "midjourney-6",
+          "dalle-3",
+          "gpt-image-1",
+          "ideogram-3.0",
+          "hidream-i1-full",
+          "grok-2-image-1212",
+          "sdxl-epic-realism",
+          "flux-mvc5000"
+        ],
+        "requested_fake_counts": {
+          "train": 61600,
+          "val": 8800,
+          "test": 7997
+        },
+        "used_fake_counts": {
+          "train": 61600,
+          "val": 8800,
+          "test": 7997
+        },
+        "real_counts": {
+          "train": 61600,
+          "val": 8800,
+          "test": 7997
+        },
+        "csv_counts": {
+          "train": 123200,
+          "val": 17600,
+          "test": 15994
+        },
+        "note": "LOGO keeps the held-out generator in test as much as possible. If real images are insufficient, train/val are reduced first."
+      },
+      "sdxl-epic-realism": {
+        "heldout_generator": "sdxl-epic-realism",
+        "seen_generators": [
+          "sd-3.5",
+          "flux.1-dev",
+          "flux-1.1-pro",
+          "midjourney-6",
+          "dalle-3",
+          "gpt-image-1",
+          "ideogram-3.0",
+          "hidream-i1-full",
+          "grok-2-image-1212",
+          "imagen-4.0",
+          "flux-mvc5000"
+        ],
+        "requested_fake_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "used_fake_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "real_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "csv_counts": {
+          "train": 123196,
+          "val": 17600,
+          "test": 16000
+        },
+        "note": "LOGO keeps the held-out generator in test as much as possible. If real images are insufficient, train/val are reduced first."
+      },
+      "flux-mvc5000": {
+        "heldout_generator": "flux-mvc5000",
+        "seen_generators": [
+          "sd-3.5",
+          "flux.1-dev",
+          "flux-1.1-pro",
+          "midjourney-6",
+          "dalle-3",
+          "gpt-image-1",
+          "ideogram-3.0",
+          "hidream-i1-full",
+          "grok-2-image-1212",
+          "imagen-4.0",
+          "sdxl-epic-realism"
+        ],
+        "requested_fake_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "used_fake_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "real_counts": {
+          "train": 61598,
+          "val": 8800,
+          "test": 8000
+        },
+        "csv_counts": {
+          "train": 123196,
+          "val": 17600,
+          "test": 16000
+        },
+        "note": "LOGO keeps the held-out generator in test as much as possible. If real images are insufficient, train/val are reduced first."
+      }
+    }
+  },
+  "scan": {
+    "total_real": 95991,
+    "total_fake": 95997,
+    "min_fake_across_generators": 7997,
+    "fake_counts_by_generator": {
+      "sd-3.5": 8000,
+      "flux.1-dev": 8000,
+      "flux-1.1-pro": 8000,
+      "midjourney-6": 8000,
+      "dalle-3": 8000,
+      "gpt-image-1": 8000,
+      "ideogram-3.0": 8000,
+      "hidream-i1-full": 8000,
+      "grok-2-image-1212": 8000,
+      "imagen-4.0": 7997,
+      "sdxl-epic-realism": 8000,
+      "flux-mvc5000": 8000
+    }
+  },
+  "full_fake_counts_by_generator": {
+    "sd-3.5": {
+      "total": 8000,
+      "train": 5600,
+      "val": 800,
+      "test": 1600
+    },
+    "flux.1-dev": {
+      "total": 8000,
+      "train": 5600,
+      "val": 800,
+      "test": 1600
+    },
+    "flux-1.1-pro": {
+      "total": 8000,
+      "train": 5600,
+      "val": 800,
+      "test": 1600
+    },
+    "midjourney-6": {
+      "total": 8000,
+      "train": 5600,
+      "val": 800,
+      "test": 1600
+    },
+    "dalle-3": {
+      "total": 8000,
+      "train": 5600,
+      "val": 800,
+      "test": 1600
+    },
+    "gpt-image-1": {
+      "total": 8000,
+      "train": 5600,
+      "val": 800,
+      "test": 1600
+    },
+    "ideogram-3.0": {
+      "total": 8000,
+      "train": 5600,
+      "val": 800,
+      "test": 1600
+    },
+    "hidream-i1-full": {
+      "total": 8000,
+      "train": 5600,
+      "val": 800,
+      "test": 1600
+    },
+    "grok-2-image-1212": {
+      "total": 8000,
+      "train": 5600,
+      "val": 800,
+      "test": 1600
+    },
+    "imagen-4.0": {
+      "total": 7997,
+      "train": 5598,
+      "val": 800,
+      "test": 1599
+    },
+    "sdxl-epic-realism": {
+      "total": 8000,
+      "train": 5600,
+      "val": 800,
+      "test": 1600
+    },
+    "flux-mvc5000": {
+      "total": 8000,
+      "train": 5600,
+      "val": 800,
+      "test": 1600
+    }
+  }
+}

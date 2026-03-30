@@ -29,32 +29,21 @@ Notes
 -----
 1) merged:
    - Uses all selected fake generators together.
-   - Exact 7:1:2 split for fake and real.
+   - Real/fake are automatically matched to the smaller available side.
 
 2) by_generator:
    - One binary dataset per generator vs real.
-   - Exact 7:1:2 split per generator.
-   - Reuses the SAME real 8k reference split (5600/800/1600) for every generator
-     so comparisons across generators are fair.
+   - Reuses the SAME real split size for every generator for fair comparison.
+   - If some fake images were deleted/corrupted, the shared size is reduced automatically.
 
 3) logo = Leave-One-Generator-Out:
    - For held-out generator g:
        train fake = 70% of every other generator
        val fake   = 10% of every other generator
        test fake  = 100% of held-out generator
-   - This is the standard LOGO protocol. Because one generator is fully held out,
-     it cannot be an exact global 7:1:2 split over all 12 generators.
    - Real images are matched to the fake counts for each split.
-
-CSV columns:
-    filepath, label, split, generator, mode, group
-
-    filepath : project-root-relative POSIX path
-    label    : 0 = real, 1 = fake
-    split    : train / val / test
-    generator: real or generator name
-    mode     : merged / by_generator / logo
-    group    : merged / generator name / heldout generator name
+   - If real images are slightly fewer than required, train/val are reduced first
+     and held-out test is preserved as much as possible.
 """
 
 from __future__ import annotations
@@ -62,7 +51,6 @@ from __future__ import annotations
 import argparse
 import json
 import random
-from collections import defaultdict
 from pathlib import Path
 from typing import Iterable
 
@@ -107,18 +95,41 @@ def split_counts(n: int, ratios=(0.7, 0.1, 0.2)) -> tuple[int, int, int]:
     return train, val, test
 
 
-def split_fixed(items: list[str], n_train: int, n_val: int, n_test: int, seed: int) -> dict[str, list[str]]:
-    if n_train + n_val + n_test > len(items):
-        raise ValueError(
-            f"Requested {n_train+n_val+n_test} items but only {len(items)} available."
-        )
+def shuffle_copy(items: list[str], seed: int) -> list[str]:
     rng = random.Random(seed)
     shuffled = items[:]
     rng.shuffle(shuffled)
+    return shuffled
+
+
+def sample_n(items: list[str], n: int, seed: int) -> list[str]:
+    if n > len(items):
+        raise ValueError(f"Requested {n} items but only {len(items)} available.")
+    return shuffle_copy(items, seed)[:n]
+
+
+def split_fixed(
+    items: list[str],
+    n_train: int,
+    n_val: int,
+    n_test: int,
+    seed: int,
+) -> dict[str, list[str]]:
+    requested = n_train + n_val + n_test
+    if requested > len(items):
+        raise ValueError(
+            f"Requested {requested} items but only {len(items)} available."
+        )
+    shuffled = shuffle_copy(items, seed)
     train = shuffled[:n_train]
     val = shuffled[n_train:n_train + n_val]
     test = shuffled[n_train + n_val:n_train + n_val + n_test]
     return {"train": train, "val": val, "test": test}
+
+
+def sample_all_and_split(items: list[str], total: int, seed: int) -> dict[str, list[str]]:
+    n_train, n_val, n_test = split_counts(total, ratios=(0.7, 0.1, 0.2))
+    return split_fixed(items, n_train=n_train, n_val=n_val, n_test=n_test, seed=seed)
 
 
 def build_rows(
@@ -153,6 +164,50 @@ def save_split_csvs(rows_by_split: dict[str, list[dict]], out_dir: Path) -> dict
     return counts
 
 
+def adjust_logo_fake_counts(
+    requested_train: int,
+    requested_val: int,
+    requested_test: int,
+    real_available: int,
+) -> tuple[int, int, int]:
+    """
+    Preserve held-out test as much as possible.
+    If real is insufficient, reduce train/val first.
+    If even test cannot fit, reduce test too.
+    """
+    total_requested = requested_train + requested_val + requested_test
+    if real_available >= total_requested:
+        return requested_train, requested_val, requested_test
+
+    keep_test = min(requested_test, real_available)
+    remaining_for_seen = max(0, real_available - keep_test)
+
+    seen_requested = requested_train + requested_val
+    if remaining_for_seen >= seen_requested:
+        return requested_train, requested_val, keep_test
+
+    if seen_requested == 0:
+        return 0, 0, keep_test
+
+    # proportionally reduce train/val
+    keep_train = int(round(remaining_for_seen * (requested_train / seen_requested)))
+    keep_train = min(keep_train, requested_train)
+    keep_val = remaining_for_seen - keep_train
+
+    # small safety correction
+    keep_val = min(keep_val, requested_val)
+    if keep_train + keep_val < remaining_for_seen:
+        short = remaining_for_seen - (keep_train + keep_val)
+        add_to_train = min(short, requested_train - keep_train)
+        keep_train += add_to_train
+        short -= add_to_train
+        if short > 0:
+            add_to_val = min(short, requested_val - keep_val)
+            keep_val += add_to_val
+
+    return keep_train, keep_val, keep_test
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input-root", type=str, default="data/raw/openfake")
@@ -168,7 +223,7 @@ def main():
         "--by-generator-real-count",
         type=int,
         default=8000,
-        help="Real images reused for each by_generator dataset. Default=8000.",
+        help="Requested real images reused for each by_generator dataset. Default=8000.",
     )
     args = parser.parse_args()
 
@@ -209,8 +264,19 @@ def main():
             raise RuntimeError(f"No images found for generator: {gen_dir}")
         fake_files_by_gen[gen] = [relpath_posix(p, project_root) for p in gen_files]
 
+    total_fake = sum(len(v) for v in fake_files_by_gen.values())
+    min_fake_across_generators = min(len(v) for v in fake_files_by_gen.values())
+
+    summary["scan"] = {
+        "total_real": len(real_files),
+        "total_fake": total_fake,
+        "min_fake_across_generators": min_fake_across_generators,
+        "fake_counts_by_generator": {gen: len(files) for gen, files in fake_files_by_gen.items()},
+    }
+
     # ---------------------------------------------------------------------
-    # Base per-generator fake 7:1:2 split
+    # Full per-generator fake 7:1:2 split (full available)
+    # Used for LOGO.
     # ---------------------------------------------------------------------
     fake_splits_by_gen: dict[str, dict[str, list[str]]] = {}
     fake_counts_by_gen = {}
@@ -218,7 +284,11 @@ def main():
         files = fake_files_by_gen[gen]
         n_train, n_val, n_test = split_counts(len(files), ratios=(0.7, 0.1, 0.2))
         fake_splits_by_gen[gen] = split_fixed(
-            files, n_train=n_train, n_val=n_val, n_test=n_test, seed=args.seed + i
+            files,
+            n_train=n_train,
+            n_val=n_val,
+            n_test=n_test,
+            seed=args.seed + i,
         )
         fake_counts_by_gen[gen] = {
             "total": len(files),
@@ -226,45 +296,43 @@ def main():
             "val": n_val,
             "test": n_test,
         }
-
-    summary["fake_counts_by_generator"] = fake_counts_by_gen
-    total_fake = sum(len(v) for v in fake_files_by_gen.values())
+    summary["full_fake_counts_by_generator"] = fake_counts_by_gen
 
     # ---------------------------------------------------------------------
     # MERGED
     # ---------------------------------------------------------------------
-    merged_fake_train = []
-    merged_fake_val = []
-    merged_fake_test = []
+    merged_fake_all = []
     for gen in selected_generators:
-        merged_fake_train.extend(fake_splits_by_gen[gen]["train"])
-        merged_fake_val.extend(fake_splits_by_gen[gen]["val"])
-        merged_fake_test.extend(fake_splits_by_gen[gen]["test"])
+        merged_fake_all.extend(fake_files_by_gen[gen])
 
-    merged_real_splits = split_fixed(
-        real_files,
-        n_train=len(merged_fake_train),
-        n_val=len(merged_fake_val),
-        n_test=len(merged_fake_test),
+    merged_usable_total = min(len(merged_fake_all), len(real_files))
+    if merged_usable_total == 0:
+        raise RuntimeError("No usable data for merged split.")
+
+    merged_fake_splits = sample_all_and_split(
+        merged_fake_all,
+        total=merged_usable_total,
         seed=args.seed + 1000,
+    )
+    merged_real_splits = sample_all_and_split(
+        real_files,
+        total=merged_usable_total,
+        seed=args.seed + 1001,
     )
 
     merged_rows = {
         "train": build_rows(merged_real_splits["train"], 0, "train", "real", "merged", "merged")
-        + build_rows(merged_fake_train, 1, "train", "fake", "merged", "merged"),
+        + build_rows(merged_fake_splits["train"], 1, "train", "fake", "merged", "merged"),
         "val": build_rows(merged_real_splits["val"], 0, "val", "real", "merged", "merged")
-        + build_rows(merged_fake_val, 1, "val", "fake", "merged", "merged"),
+        + build_rows(merged_fake_splits["val"], 1, "val", "fake", "merged", "merged"),
         "test": build_rows(merged_real_splits["test"], 0, "test", "real", "merged", "merged")
-        + build_rows(merged_fake_test, 1, "test", "fake", "merged", "merged"),
+        + build_rows(merged_fake_splits["test"], 1, "test", "fake", "merged", "merged"),
     }
     merged_counts = save_split_csvs(merged_rows, output_root / "merged")
     summary["modes"]["merged"] = {
+        "usable_total_per_class": merged_usable_total,
         "real_counts": {k: len(v) for k, v in merged_real_splits.items()},
-        "fake_counts": {
-            "train": len(merged_fake_train),
-            "val": len(merged_fake_val),
-            "test": len(merged_fake_test),
-        },
+        "fake_counts": {k: len(v) for k, v in merged_fake_splits.items()},
         "csv_counts": merged_counts,
     }
 
@@ -274,8 +342,12 @@ def main():
     by_gen_root = output_root / "by_generator"
     by_generator_summary = {}
 
-    bg_real_total = args.by_generator_real_count
-    bg_rt, bg_rv, bg_rte = split_counts(bg_real_total, ratios=(0.7, 0.1, 0.2))
+    bg_requested_total = int(args.by_generator_real_count)
+    bg_usable_total = min(bg_requested_total, len(real_files), min_fake_across_generators)
+    if bg_usable_total == 0:
+        raise RuntimeError("No usable data for by_generator splits.")
+
+    bg_rt, bg_rv, bg_rte = split_counts(bg_usable_total, ratios=(0.7, 0.1, 0.2))
     bygen_real_splits = split_fixed(
         real_files,
         n_train=bg_rt,
@@ -284,19 +356,30 @@ def main():
         seed=args.seed + 2000,
     )
 
-    for gen in selected_generators:
+    for i, gen in enumerate(selected_generators):
+        fake_sampled = sample_n(fake_files_by_gen[gen], bg_usable_total, seed=args.seed + 2100 + i)
+        fake_splits = split_fixed(
+            fake_sampled,
+            n_train=bg_rt,
+            n_val=bg_rv,
+            n_test=bg_rte,
+            seed=args.seed + 2200 + i,
+        )
+
         rows_by_split = {
             "train": build_rows(bygen_real_splits["train"], 0, "train", "real", "by_generator", gen)
-            + build_rows(fake_splits_by_gen[gen]["train"], 1, "train", gen, "by_generator", gen),
+            + build_rows(fake_splits["train"], 1, "train", gen, "by_generator", gen),
             "val": build_rows(bygen_real_splits["val"], 0, "val", "real", "by_generator", gen)
-            + build_rows(fake_splits_by_gen[gen]["val"], 1, "val", gen, "by_generator", gen),
+            + build_rows(fake_splits["val"], 1, "val", gen, "by_generator", gen),
             "test": build_rows(bygen_real_splits["test"], 0, "test", "real", "by_generator", gen)
-            + build_rows(fake_splits_by_gen[gen]["test"], 1, "test", gen, "by_generator", gen),
+            + build_rows(fake_splits["test"], 1, "test", gen, "by_generator", gen),
         }
         counts = save_split_csvs(rows_by_split, by_gen_root / gen)
         by_generator_summary[gen] = {
+            "requested_total_per_class": bg_requested_total,
+            "usable_total_per_class": bg_usable_total,
             "real_counts": {k: len(v) for k, v in bygen_real_splits.items()},
-            "fake_counts": {k: len(v) for k, v in fake_splits_by_gen[gen].items()},
+            "fake_counts": {k: len(v) for k, v in fake_splits.items()},
             "csv_counts": counts,
         }
     summary["modes"]["by_generator"] = by_generator_summary
@@ -310,21 +393,35 @@ def main():
     for j, heldout in enumerate(selected_generators):
         seen = [g for g in selected_generators if g != heldout]
 
-        logo_fake_train = []
-        logo_fake_val = []
+        requested_train_list = []
+        requested_val_list = []
         for gen in seen:
-            logo_fake_train.extend(fake_splits_by_gen[gen]["train"])
-            logo_fake_val.extend(fake_splits_by_gen[gen]["val"])
+            requested_train_list.extend(fake_splits_by_gen[gen]["train"])
+            requested_val_list.extend(fake_splits_by_gen[gen]["val"])
 
-        # Standard LOGO: held-out generator is entirely reserved for test.
-        logo_fake_test = fake_files_by_gen[heldout][:]
+        requested_test_list = fake_files_by_gen[heldout][:]
+
+        req_train = len(requested_train_list)
+        req_val = len(requested_val_list)
+        req_test = len(requested_test_list)
+
+        keep_train, keep_val, keep_test = adjust_logo_fake_counts(
+            requested_train=req_train,
+            requested_val=req_val,
+            requested_test=req_test,
+            real_available=len(real_files),
+        )
+
+        logo_fake_train = sample_n(requested_train_list, keep_train, seed=args.seed + 3000 + j)
+        logo_fake_val = sample_n(requested_val_list, keep_val, seed=args.seed + 4000 + j)
+        logo_fake_test = sample_n(requested_test_list, keep_test, seed=args.seed + 5000 + j)
 
         logo_real_splits = split_fixed(
             real_files,
             n_train=len(logo_fake_train),
             n_val=len(logo_fake_val),
             n_test=len(logo_fake_test),
-            seed=args.seed + 3000 + j,
+            seed=args.seed + 6000 + j,
         )
 
         rows_by_split = {
@@ -339,14 +436,22 @@ def main():
         logo_summary[heldout] = {
             "heldout_generator": heldout,
             "seen_generators": seen,
-            "real_counts": {k: len(v) for k, v in logo_real_splits.items()},
-            "fake_counts": {
+            "requested_fake_counts": {
+                "train": req_train,
+                "val": req_val,
+                "test": req_test,
+            },
+            "used_fake_counts": {
                 "train": len(logo_fake_train),
                 "val": len(logo_fake_val),
                 "test": len(logo_fake_test),
             },
+            "real_counts": {k: len(v) for k, v in logo_real_splits.items()},
             "csv_counts": counts,
-            "note": "LOGO uses all held-out fake images for test; this is not an exact global 7:1:2 split.",
+            "note": (
+                "LOGO keeps the held-out generator in test as much as possible. "
+                "If real images are insufficient, train/val are reduced first."
+            ),
         }
 
     summary["modes"]["logo"] = logo_summary
@@ -369,15 +474,17 @@ def main():
     print()
     print("[merged]")
     print(
-        f"  train={merged_counts['train']:,} | "
+        f"  usable_per_class={merged_usable_total:,} | "
+        f"train={merged_counts['train']:,} | "
         f"val={merged_counts['val']:,} | "
         f"test={merged_counts['test']:,}"
     )
     print()
     print("[by_generator]")
     print(
-        f"  shared real split = "
-        f"{bg_rt:,} / {bg_rv:,} / {bg_rte:,} (train/val/test)"
+        f"  requested_per_class={bg_requested_total:,} | "
+        f"usable_per_class={bg_usable_total:,} | "
+        f"shared real split={bg_rt:,}/{bg_rv:,}/{bg_rte:,}"
     )
     print()
     print("[logo]")

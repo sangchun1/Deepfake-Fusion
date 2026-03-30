@@ -1,0 +1,39 @@
+{
+  "timestamp": "2026-03-30T02:47:16",
+  "mode": "merged",
+  "resolved_modes": [
+    "merged"
+  ],
+  "base_data_config": "C:/Deepfake-Fusion/configs/data/openfake.yaml",
+  "model_config": "C:/Deepfake-Fusion/configs/model/resnet18.yaml",
+  "train_config": "C:/Deepfake-Fusion/configs/train/spatial_resnet_openfake.yaml",
+  "splits_root": "C:/Deepfake-Fusion/data/splits/openfake",
+  "generated_config_dir": "C:/Deepfake-Fusion/configs/_generated/openfake_batch",
+  "output_root": "C:/Deepfake-Fusion/outputs/spatial/resnet18_openfake",
+  "explain_root": "C:/Deepfake-Fusion/outputs/explain/gradcam/openfake",
+  "root_dir_override": null,
+  "train_only": false,
+  "eval_only": false,
+  "explain_only": false,
+  "run_explain": true,
+  "eval_split": "test",
+  "explain_split": "test",
+  "checkpoint_name": "best.pth",
+  "selected_names": null,
+  "results": [
+    {
+      "mode": "merged",
+      "experiment_name": "merged",
+      "split_dir": "C:/Deepfake-Fusion/data/splits/openfake/merged",
+      "generated_data_config": "C:/Deepfake-Fusion/configs/_generated/openfake_batch/merged/merged.yaml",
+      "output_dir": "C:/Deepfake-Fusion/outputs/spatial/resnet18_openfake/merged/merged",
+      "train_status": "done",
+      "eval_status": "done",
+      "explain_status": "done",
+      "checkpoint_path": "C:/Deepfake-Fusion/outputs/spatial/resnet18_openfake/merged/merged/best.pth",
+      "eval_json_path": "C:/Deepfake-Fusion/outputs/spatial/resnet18_openfake/merged/merged/eval_test.json",
+      "explain_summary_path": "C:/Deepfake-Fusion/outputs/explain/gradcam/openfake/merged/merged/openfake_merged_merged/test/best/clean/summary.json",
+      "error": null
+    }
+  ]
+}
