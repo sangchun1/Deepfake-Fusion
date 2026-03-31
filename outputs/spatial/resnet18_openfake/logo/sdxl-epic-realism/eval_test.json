@@ -1,0 +1,22 @@
+{
+  "dataset_name": "openfake_logo_sdxl-epic-realism",
+  "dataset_class": "OpenFakeDataset",
+  "split": "test",
+  "checkpoint": "C:/Deepfake-Fusion/outputs/spatial/resnet18_openfake/logo/sdxl-epic-realism/best.pth",
+  "metrics": {
+    "accuracy": 0.875875,
+    "precision": 0.9416862514688602,
+    "recall": 0.801375,
+    "f1": 0.8658833063209076,
+    "auc": 0.9637090781250001,
+    "loss": 0.5160071398988366
+  },
+  "dataset_size": 16000,
+  "class_counts": {
+    "0": 8000,
+    "1": 8000
+  },
+  "best_score_in_checkpoint": 0.988823256714876,
+  "best_epoch_in_checkpoint": 9,
+  "saved_epoch": 9
+}

@@ -1,0 +1,34 @@
+name: openfake_logo_dalle-3
+dataset_class: OpenFakeDataset
+num_classes: 2
+task: binary_classification
+paths:
+  root_dir: data/raw/openfake
+  train_csv: C:/Deepfake-Fusion/data/splits/openfake/logo/dalle-3/train.csv
+  val_csv: C:/Deepfake-Fusion/data/splits/openfake/logo/dalle-3/val.csv
+  test_csv: C:/Deepfake-Fusion/data/splits/openfake/logo/dalle-3/test.csv
+image:
+  input_size: 224
+  channels: 3
+  mean:
+  - 0.485
+  - 0.456
+  - 0.406
+  std:
+  - 0.229
+  - 0.224
+  - 0.225
+labels:
+  real: 0
+  fake: 1
+dataloader:
+  batch_size: 64
+  num_workers: 4
+  pin_memory: true
+  drop_last: false
+train:
+  shuffle: true
+val:
+  shuffle: false
+test:
+  shuffle: false

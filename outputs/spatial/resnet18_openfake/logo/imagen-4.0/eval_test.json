@@ -1,0 +1,22 @@
+{
+  "dataset_name": "openfake_logo_imagen-4.0",
+  "dataset_class": "OpenFakeDataset",
+  "split": "test",
+  "checkpoint": "C:/Deepfake-Fusion/outputs/spatial/resnet18_openfake/logo/imagen-4.0/best.pth",
+  "metrics": {
+    "accuracy": 0.9285357008878329,
+    "precision": 0.9568115169288189,
+    "recall": 0.8975865949731149,
+    "f1": 0.9262533066649461,
+    "auc": 0.982699730355617,
+    "loss": 0.28660434874293356
+  },
+  "dataset_size": 15994,
+  "class_counts": {
+    "0": 7997,
+    "1": 7997
+  },
+  "best_score_in_checkpoint": 0.9896925167871901,
+  "best_epoch_in_checkpoint": 10,
+  "saved_epoch": 10
+}

@@ -1,0 +1,22 @@
+{
+  "best_checkpoint": "C:/Deepfake-Fusion/outputs/spatial/resnet18_openfake/logo/ideogram-3.0/best.pth",
+  "best_epoch": 10,
+  "best_monitor": "val_auc",
+  "best_score": 0.9909630358987603,
+  "val_metrics": {
+    "accuracy": 0.9533522727272727,
+    "precision": 0.9591437449648982,
+    "recall": 0.9470454545454545,
+    "f1": 0.953056206758534,
+    "auc": 0.9909630358987603,
+    "loss": 0.1721490187604319
+  },
+  "test_metrics": {
+    "accuracy": 0.93475,
+    "precision": 0.9545216936748563,
+    "recall": 0.913,
+    "f1": 0.9332992588806542,
+    "auc": 0.9841126875000001,
+    "loss": 0.2538834567293525
+  }
+}
