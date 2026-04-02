@@ -1,0 +1,345 @@
+{
+  "root": "outputs\\spatial",
+  "num_records": 25,
+  "modes": {
+    "merged": {
+      "count": 1,
+      "records": [
+        {
+          "mode": "merged",
+          "experiment": "merged",
+          "dataset_name": "openfake_merged_merged",
+          "dataset_size": 38396,
+          "accuracy": 0.9551515782894051,
+          "precision": 0.9585913718904168,
+          "recall": 0.9514011876237108,
+          "f1": 0.9549827460002092,
+          "auc": 0.990569814180365,
+          "loss": 0.17608693110471232
+        }
+      ],
+      "means": {
+        "accuracy": 0.9551515782894051,
+        "precision": 0.9585913718904168,
+        "recall": 0.9514011876237108,
+        "f1": 0.9549827460002092,
+        "auc": 0.990569814180365,
+        "loss": 0.17608693110471232
+      }
+    },
+    "by_generator": {
+      "count": 12,
+      "records": [
+        {
+          "mode": "by_generator",
+          "experiment": "dalle-3",
+          "dataset_name": "openfake_by_generator_dalle-3",
+          "dataset_size": 3198,
+          "accuracy": 0.9787367104440275,
+          "precision": 0.983575489576753,
+          "recall": 0.9737335834896811,
+          "f1": 0.978629792583281,
+          "auc": 0.9971155361719587,
+          "loss": 0.07084871462783342
+        },
+        {
+          "mode": "by_generator",
+          "experiment": "flux-1.1-pro",
+          "dataset_name": "openfake_by_generator_flux-1.1-pro",
+          "dataset_size": 3198,
+          "accuracy": 0.9349593495934959,
+          "precision": 0.9290561381863047,
+          "recall": 0.9418386491557224,
+          "f1": 0.9354037267080745,
+          "auc": 0.9834404398308667,
+          "loss": 0.1948700776746528
+        },
+        {
+          "mode": "by_generator",
+          "experiment": "flux-mvc5000",
+          "dataset_name": "openfake_by_generator_flux-mvc5000",
+          "dataset_size": 3198,
+          "accuracy": 0.9721701063164477,
+          "precision": 0.9796696315120712,
+          "recall": 0.9643527204502814,
+          "f1": 0.9719508351717617,
+          "auc": 0.9971065405559525,
+          "loss": 0.0763076246064331
+        },
+        {
+          "mode": "by_generator",
+          "experiment": "flux.1-dev",
+          "dataset_name": "openfake_by_generator_flux.1-dev",
+          "dataset_size": 3198,
+          "accuracy": 0.9552845528455285,
+          "precision": 0.9631043256997456,
+          "recall": 0.9468417761100688,
+          "f1": 0.9549038158309682,
+          "auc": 0.9925539766293896,
+          "loss": 0.1325020382671225
+        },
+        {
+          "mode": "by_generator",
+          "experiment": "gpt-image-1",
+          "dataset_name": "openfake_by_generator_gpt-image-1",
+          "dataset_size": 3198,
+          "accuracy": 0.9815509693558474,
+          "precision": 0.9818523153942428,
+          "recall": 0.9812382739212008,
+          "f1": 0.9815451986237097,
+          "auc": 0.9983715979460271,
+          "loss": 0.057930696074192115
+        },
+        {
+          "mode": "by_generator",
+          "experiment": "grok-2-image-1212",
+          "dataset_name": "openfake_by_generator_grok-2-image-1212",
+          "dataset_size": 3198,
+          "accuracy": 0.9878048780487805,
+          "precision": 0.9887218045112782,
+          "recall": 0.9868667917448405,
+          "f1": 0.9877934272300469,
+          "auc": 0.9992418260161819,
+          "loss": 0.03484409170608509
+        },
+        {
+          "mode": "by_generator",
+          "experiment": "hidream-i1-full",
+          "dataset_name": "openfake_by_generator_hidream-i1-full",
+          "dataset_size": 3198,
+          "accuracy": 0.9559099437148217,
+          "precision": 0.9527950310559006,
+          "recall": 0.959349593495935,
+          "f1": 0.9560610782175133,
+          "auc": 0.9918190739130656,
+          "loss": 0.13049942449555313
+        },
+        {
+          "mode": "by_generator",
+          "experiment": "ideogram-3.0",
+          "dataset_name": "openfake_by_generator_ideogram-3.0",
+          "dataset_size": 3198,
+          "accuracy": 0.9790494058786742,
+          "precision": 0.9805520702634881,
+          "recall": 0.9774859287054409,
+          "f1": 0.9790165988098967,
+          "auc": 0.9975631658466966,
+          "loss": 0.06160032284038935
+        },
+        {
+          "mode": "by_generator",
+          "experiment": "imagen-4.0",
+          "dataset_name": "openfake_by_generator_imagen-4.0",
+          "dataset_size": 3198,
+          "accuracy": 0.9540337711069419,
+          "precision": 0.9577553593947037,
+          "recall": 0.9499687304565353,
+          "f1": 0.9538461538461539,
+          "auc": 0.9899444657601433,
+          "loss": 0.15226739327224662
+        },
+        {
+          "mode": "by_generator",
+          "experiment": "midjourney-6",
+          "dataset_name": "openfake_by_generator_midjourney-6",
+          "dataset_size": 3198,
+          "accuracy": 0.9815509693558474,
+          "precision": 0.9788557213930348,
+          "recall": 0.9843652282676673,
+          "f1": 0.9816027439975055,
+          "auc": 0.9985434924344914,
+          "loss": 0.054391230215983064
+        },
+        {
+          "mode": "by_generator",
+          "experiment": "sd-3.5",
+          "dataset_name": "openfake_by_generator_sd-3.5",
+          "dataset_size": 3198,
+          "accuracy": 0.9677923702313946,
+          "precision": 0.9710327455919395,
+          "recall": 0.9643527204502814,
+          "f1": 0.9676812048948855,
+          "auc": 0.9942711615022053,
+          "loss": 0.10330026186280432
+        },
+        {
+          "mode": "by_generator",
+          "experiment": "sdxl-epic-realism",
+          "dataset_name": "openfake_by_generator_sdxl-epic-realism",
+          "dataset_size": 3198,
+          "accuracy": 0.9859287054409006,
+          "precision": 0.9838107098381071,
+          "recall": 0.9881175734834271,
+          "f1": 0.9859594383775351,
+          "auc": 0.9989019481766473,
+          "loss": 0.03831226688479449
+        }
+      ],
+      "means": {
+        "accuracy": 0.9695643110277257,
+        "precision": 0.9708984452014641,
+        "recall": 0.9682092974775902,
+        "f1": 0.9695328345242776,
+        "auc": 0.9949061020653022,
+        "loss": 0.0923061785440075
+      }
+    },
+    "logo": {
+      "count": 12,
+      "records": [
+        {
+          "mode": "logo",
+          "experiment": "dalle-3",
+          "dataset_name": "openfake_logo_dalle-3",
+          "dataset_size": 16000,
+          "accuracy": 0.8951875,
+          "precision": 0.9491405029123455,
+          "recall": 0.835125,
+          "f1": 0.888489926191901,
+          "auc": 0.9704852187500002,
+          "loss": 0.46830284035205844
+        },
+        {
+          "mode": "logo",
+          "experiment": "flux-1.1-pro",
+          "dataset_name": "openfake_logo_flux-1.1-pro",
+          "dataset_size": 16000,
+          "accuracy": 0.7216875,
+          "precision": 0.9314035514473364,
+          "recall": 0.478625,
+          "f1": 0.6323177276855751,
+          "auc": 0.87835903125,
+          "loss": 1.972934996277094
+        },
+        {
+          "mode": "logo",
+          "experiment": "flux-mvc5000",
+          "dataset_name": "openfake_logo_flux-mvc5000",
+          "dataset_size": 16000,
+          "accuracy": 0.8551875,
+          "precision": 0.937355702631984,
+          "recall": 0.76125,
+          "f1": 0.840173829068083,
+          "auc": 0.9515643437499999,
+          "loss": 0.6875456159114838
+        },
+        {
+          "mode": "logo",
+          "experiment": "flux.1-dev",
+          "dataset_name": "openfake_logo_flux.1-dev",
+          "dataset_size": 16000,
+          "accuracy": 0.9475,
+          "precision": 0.950314465408805,
+          "recall": 0.944375,
+          "f1": 0.9473354231974922,
+          "auc": 0.9881683359374999,
+          "loss": 0.21439540798962117
+        },
+        {
+          "mode": "logo",
+          "experiment": "gpt-image-1",
+          "dataset_name": "openfake_logo_gpt-image-1",
+          "dataset_size": 16000,
+          "accuracy": 0.9510625,
+          "precision": 0.9506681653553141,
+          "recall": 0.9515,
+          "f1": 0.9510839007934029,
+          "auc": 0.9892290703124998,
+          "loss": 0.19464006841927767
+        },
+        {
+          "mode": "logo",
+          "experiment": "grok-2-image-1212",
+          "dataset_name": "openfake_logo_grok-2-image-1212",
+          "dataset_size": 16000,
+          "accuracy": 0.82275,
+          "precision": 0.9354131534569983,
+          "recall": 0.693375,
+          "f1": 0.796410624551328,
+          "auc": 0.9450922734375001,
+          "loss": 0.7862093399986625
+        },
+        {
+          "mode": "logo",
+          "experiment": "hidream-i1-full",
+          "dataset_name": "openfake_logo_hidream-i1-full",
+          "dataset_size": 16000,
+          "accuracy": 0.9306875,
+          "precision": 0.9544914918876137,
+          "recall": 0.9045,
+          "f1": 0.928823567165137,
+          "auc": 0.9822237265625001,
+          "loss": 0.2902890685349703
+        },
+        {
+          "mode": "logo",
+          "experiment": "ideogram-3.0",
+          "dataset_name": "openfake_logo_ideogram-3.0",
+          "dataset_size": 16000,
+          "accuracy": 0.93475,
+          "precision": 0.9545216936748563,
+          "recall": 0.913,
+          "f1": 0.9332992588806542,
+          "auc": 0.9841126875000001,
+          "loss": 0.2538834567293525
+        },
+        {
+          "mode": "logo",
+          "experiment": "imagen-4.0",
+          "dataset_name": "openfake_logo_imagen-4.0",
+          "dataset_size": 15994,
+          "accuracy": 0.9285357008878329,
+          "precision": 0.9568115169288189,
+          "recall": 0.8975865949731149,
+          "f1": 0.9262533066649461,
+          "auc": 0.982699730355617,
+          "loss": 0.28660434874293356
+        },
+        {
+          "mode": "logo",
+          "experiment": "midjourney-6",
+          "dataset_name": "openfake_logo_midjourney-6",
+          "dataset_size": 16000,
+          "accuracy": 0.821625,
+          "precision": 0.9427047487955953,
+          "recall": 0.684875,
+          "f1": 0.7933680857225601,
+          "auc": 0.9467859140625,
+          "loss": 0.8134360684230924
+        },
+        {
+          "mode": "logo",
+          "experiment": "sd-3.5",
+          "dataset_name": "openfake_logo_sd-3.5",
+          "dataset_size": 16000,
+          "accuracy": 0.789625,
+          "precision": 0.9317927692881103,
+          "recall": 0.625,
+          "f1": 0.7481669908723627,
+          "auc": 0.9216981562500001,
+          "loss": 1.1191498798653483
+        },
+        {
+          "mode": "logo",
+          "experiment": "sdxl-epic-realism",
+          "dataset_name": "openfake_logo_sdxl-epic-realism",
+          "dataset_size": 16000,
+          "accuracy": 0.875875,
+          "precision": 0.9416862514688602,
+          "recall": 0.801375,
+          "f1": 0.8658833063209076,
+          "auc": 0.9637090781250001,
+          "loss": 0.5160071398988366
+        }
+      ],
+      "means": {
+        "accuracy": 0.8728727667406527,
+        "precision": 0.9446920011047198,
+        "recall": 0.7908822162477596,
+        "f1": 0.8543004955928625,
+        "auc": 0.9586772971910931,
+        "loss": 0.6336165192618942
+      }
+    }
+  }
+}
